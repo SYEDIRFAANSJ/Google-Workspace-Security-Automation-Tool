@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GWS CISO Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PDF Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0B0F19; transition: background-color 0.3s; }
+        .glass-card { background: rgba(25, 29, 41, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; }
+        .glass-card.clickable:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); cursor: pointer; border-color: rgba(56, 189, 248, 0.5); }
+        .page-pane { display: none; }
+        .page-pane.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .dataTables_wrapper .dataTables_length, .dataTables_wrapper .dataTables_info, .dataTables_wrapper .dataTables_paginate { color: #9ca3af; padding-top: 1rem; }
+        .dataTables_wrapper .dataTables_length select { background-color: #1f2937; border: 1px solid #4b5563; color: #d1d5db; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button { color: #d1d5db !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: #38BDF8 !important; border-color: #38BDF8 !important; color: white !important; }
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover { background: #374151 !important; border-color: #4b5563 !important; }
+        table.dataTable thead th, table.dataTable tbody td { color: #d1d5db; border-bottom: 1px solid #374151; padding: 0.75rem 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        td.app-names-cell { white-space: normal; }
+        .glow-border { box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), 0 0 5px rgba(56, 189, 248, 0.3); }
+        .read-more-apps, .show-less-apps { color: #38BDF8; cursor: pointer; text-decoration: none; font-weight: 500; margin-left: 4px; white-space: nowrap; }
+        .read-more-apps:hover, .show-less-apps:hover { text-decoration: underline; }
+        .settings-tab-btn.active { background-color: #374151; color: white; border-color: #38BDF8; }
+        .settings-tab-content { display: none; }
+        .settings-tab-content.active { display: block; }
+
+        /* Notification Bell */
+        .notification-bell { position: relative; }
+        .notification-badge { position: absolute; top: -5px; right: -8px; background-color: #ef4444; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+        #alerts-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 380px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 50;
+        }
+
+        /* Custom Toggle Switch for Cron Job */
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #374151; transition: .4s; border-radius: 28px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .toggle-slider { background-color: #38BDF8; }
+        input:checked + .toggle-slider:before { transform: translateX(22px); }
+
+        /* Download Dropdown */
+        .download-dropdown { position: relative; display: inline-block; }
+        .download-options { display: none; position: absolute; right: 0; background-color: #1f2937; min-width: 120px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 10; border-radius: 0.5rem; border: 1px solid #4b5563; }
+        .download-options a { color: #d1d5db; padding: 12px 16px; text-decoration: none; display: block; font-size: 0.875rem; }
+        .download-options a:hover { background-color: #374151; }
+        .show-dropdown { display: block; }
+        
+        /* Light Mode Styles */
+        body.light-mode { background-color: #f1f5f9; color: #1e293b; }
+        .light-mode .glass-card { background: rgba(255, 255, 255, 0.7); border-color: #e2e8f0; }
+        .light-mode #sidebar { background-color: #e2e8f0; }
+        .light-mode #main-content-area { background-color: #f1f5f9; }
+        .light-mode .dataTables_wrapper .dataTables_length select { background-color: #f8fafc; }
+        .light-mode .text-white { color: #1e293b !important; }
+        .light-mode .text-slate-300, .light-mode .text-slate-400, .light-mode .dataTables_wrapper .dataTables_length, .light-mode .dataTables_wrapper .dataTables_info, .light-mode .dataTables_wrapper .dataTables_paginate { color: #475569 !important; }
+        .light-mode .border-slate-800 { border-color: #cbd5e1; }
+        .light-mode table.dataTable thead th, .light-mode table.dataTable tbody td { color: #334152; border-color: #cbd5e1; }
+        .light-mode .bg-slate-700, .light-mode .hover\:bg-slate-700\/50:hover, .light-mode .bg-slate-800\/50 { background-color: #cbd5e1 !important; }
+        .light-mode .nav-link.bg-slate-700 { background-color: #fff !important; }
+        .light-mode input, .light-mode select, .light-mode textarea { background-color: #f8fafc !important; border-color: #cbd5e1 !important; color: #1e293b !important; }
+        .light-mode .download-options { background-color: #e2e8f0; border-color: #cbd5e1; }
+        .light-mode .download-options a { color: #334152; }
+        .light-mode .download-options a:hover { background-color: #cbd5e1; }
+        .light-mode #alerts-dropdown { background-color: #fff; border-color: #e2e8f0; }
+        .light-mode #alerts-dropdown .text-white { color: #1e293b !important; }
+        .light-mode #alerts-dropdown .text-slate-400 { color: #475569 !important; }
+        .light-mode #alerts-dropdown a:hover { background-color: #f1f5f9; }
+    </style>
+</head>
+<body class="antialiased text-gray-200">
+
+    <div id="loader" class="fixed top-0 left-0 w-full h-full bg-gray-900/80 z-50 flex flex-col items-center justify-center hidden">
+        <div class="w-16 h-16 border-4 border-t-cyan-400 border-solid border-gray-600 rounded-full animate-spin"></div>
+        <p id="loader-text" class="mt-4 text-white text-lg font-semibold">Fetching data, please wait...</p>
+    </div>
+
+    <div id="dashboardWrapper" class="flex h-screen bg-slate-900">
+        <aside id="sidebar" class="w-64 flex-shrink-0 bg-slate-900/80 p-4 flex flex-col z-30 transition-all duration-300">
+            <div class="flex-grow">
+                <div class="flex items-center space-x-3 mb-6 px-2">
+                    <img src="D:\Downloads\gws login page\public\images\images.png" alt="GWS Logo" class="w-full h-auto rounded-md">
+                </div>
+                <nav class="flex flex-col space-y-2">
+                    <a href="#" data-page="overview" class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg><span class="ml-3 nav-text">Overview</span></a>
+                    <a href="#" data-page="iam" class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg><span class="ml-3 nav-text">IAM</span></a>
+                    <div id="email-nav-item">
+                        <a href="#" data-page="email" class="nav-link flex items-center justify-between p-2 rounded-lg font-semibold">
+                            <div class="flex items-center">
+                                <svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 2.5l7.997 3.384A1 1 0 0019 7V15a1 1 0 00-1-1h-4a1 1 0 00-1 1v2a1 1 0 001 1h4a1 1 0 001-1V7a1 1 0 00-.003-.116l-7.997-3.384z" /></svg>
+                                <span class="ml-3 nav-text">Email Security</span>
+                            </div>
+                            <svg class="h-5 w-5 nav-text transition-transform" id="email-submenu-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </a>
+                        <div id="email-submenu" class="hidden pl-8 pt-2 space-y-2">
+                             <a href="#" data-page="forwarding" class="nav-link flex items-center p-2 rounded-lg font-semibold text-sm"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg><span class="ml-3 nav-text">Forwarding</span></a>
+                             <a href="#" data-page="protocol" class="nav-link flex items-center p-2 rounded-lg font-semibold text-sm"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" /></svg><span class="ml-3 nav-text">Mail Protocol</span></a>
+                        </div>
+                    </div>
+                    <a href="#" data-page="apps" class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2H5zm0 2h10v6H5V6z" /></svg><span class="ml-3 nav-text">App Access</span></a>
+                    <a href="#" data-page="alert_center" class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 8a6 6 0 11-12 0 6 6 0 0112 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 11-1.06 1.06L10 5.81V12a.75.75 0 01-1.5 0V5.81l-.94.94z" clip-rule="evenodd" /></svg><span class="ml-3 nav-text">Alert Center</span></a>
+                </nav>
+            </div>
+            <div class="mt-auto space-y-2">
+                 <button id="settingsBtn" class="w-full text-slate-300 hover:bg-slate-700/50 flex items-center p-2 rounded-lg font-semibold">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span class="ml-3 nav-text">Settings</span>
+                </button>
+                <a href="/logout" class="text-slate-300 hover:bg-slate-700/50 flex items-center p-2 rounded-lg font-semibold">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                    <span class="ml-3 nav-text">Logout & Reset</span>
+                </a>
+            </div>
+        </aside>
+
+        <div id="main-content-area" class="flex-1 flex flex-col overflow-hidden bg-slate-800/20">
+            <header class="flex justify-between items-center p-4 sm:p-6 border-b border-slate-800 flex-shrink-0">
+                <div class="flex items-center">
+                    <button id="sidebarToggleBtn" class="mr-4 p-2 rounded-full hover:bg-slate-700 lg:hidden">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                    <div>
+                         <h2 class="text-xl font-bold text-white uppercase tracking-wider">GWS Security Dashboard</h2>
+                         <p id="summaryStatus" class="text-sm text-slate-400">Server is idle. Please run a scan.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                     <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <button id="notificationBell" class="p-2 rounded-full hover:bg-slate-700 notification-bell">
+                                <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                                <span id="notificationBadge" class="notification-badge hidden">0</span>
+                            </button>
+                            <div id="alerts-dropdown" class="hidden glass-card mt-2 rounded-lg shadow-xl p-2">
+                               <!-- Alerts will be injected here -->
+                            </div>
+                        </div>
+                        <div class="text-right">
+                             <div id="currentUserContainer" class="flex items-center space-x-2">
+                                <svg class="w-5 h-5 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                                <span id="currentUserName" class="text-sm text-slate-300 font-medium"></span>
+                            </div>
+                            <p id="lastUpdatedTimestamp" class="text-sm text-slate-400 mt-1"></p>
+                        </div>
+                    </div>
+                    <button id="runBtn" class="bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-600 transition duration-200 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span id="runBtnText">Run Full Check</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-4 sm:p-6 lg:p-8">
+                <div id="update-notification" class="hidden fixed top-24 right-8 bg-indigo-600 text-white py-3 px-5 rounded-lg shadow-lg z-50">
+                    <span></span>
+                </div>
+
+                <div id="overview-page" class="page-pane">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-white">Security Overview</h2>
+                         <div class="download-dropdown">
+                            <button class="download-btn-main bg-slate-700 text-white font-semibold px-4 py-2 rounded-lg hover:bg-slate-600 transition duration-200">Download Reports</button>
+                            <div class="download-options">
+                                <a href="#" class="download-all-option" data-format="csv">Download All as CSV</a>
+                                <a href="#" class="download-all-option" data-format="pdf">Download All as PDF</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="overviewCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8"></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6 lg:col-span-1">
+                            <h3 class="text-lg font-semibold text-white mb-4">MFA Adoption Status</h3>
+                            <div class="h-64"><canvas id="mfaChart"></canvas></div>
+                        </div>
+                        <div class="glass-card p-6 lg:col-span-1">
+                            <h3 class="text-lg font-semibold text-white mb-4">Forwarding Status</h3>
+                            <div class="h-64"><canvas id="forwardingChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-pane" id="alert_center-page">
+                    <h2 class="text-2xl font-bold text-white mb-6">Alert Center</h2>
+                    <div class="glass-card p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                            <div class="flex items-center space-x-4">
+                               <input type="text" id="alertCenterTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search alerts...">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="alertCenterTable" class="w-full"></table></div>
+                    </div>
+                </div>
+
+                <!-- Pages with Tables -->
+                <div class="page-pane" id="iam-page">
+                     <h2 class="text-2xl font-bold text-white mb-6">Identity & Access Management</h2>
+                    <div id="iamCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+                    <div class="glass-card p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                             <div class="flex items-center space-x-2 bg-slate-800/50 p-1 rounded-lg">
+                                <button data-filter="all" class="iam-toggle user-type-toggle bg-slate-700 text-white px-3 py-1.5 text-sm font-semibold rounded-md">All Users</button>
+                                <button data-filter="admin" class="iam-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">Admin Users</button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                               <input type="text" id="iamTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search...">
+                               <div class="download-dropdown">
+                                   <button class="download-btn-main bg-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">Download</button>
+                                   <div class="download-options">
+                                       <a href="#" class="download-table-option" data-format="csv" data-table="iamTable">as CSV</a>
+                                       <a href="#" class="download-table-option" data-format="pdf" data-table="iamTable">as PDF</a>
+                                   </div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="iamTable" class="w-full"></table></div>
+                    </div>
+                </div>
+
+                <div class="page-pane" id="email-page">
+                    <h2 class="text-2xl font-bold text-white mb-6">Email Security</h2>
+                    <div id="emailCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+
+                    <h3 class="text-xl font-semibold text-white mb-4 mt-8">Domain-Level Email Security Status</h3>
+                    <div id="emailSettingsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                        <!-- Domain settings will be injected here -->
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-white mb-4 mt-8">User-Level Email Alerts</h3>
+                    <div class="glass-card p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                             <div class="flex items-center space-x-2 bg-slate-800/50 p-1 rounded-lg">
+                                <button data-filter="all" class="email-toggle user-type-toggle bg-slate-700 text-white px-3 py-1.5 text-sm font-semibold rounded-md">All Users</button>
+                                <button data-filter="admin" class="email-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">Admin Users</button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="emailTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search...">
+                                <div class="download-dropdown">
+                                   <button class="download-btn-main bg-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">Download</button>
+                                   <div class="download-options">
+                                       <a href="#" class="download-table-option" data-format="csv" data-table="emailTable">as CSV</a>
+                                       <a href="#" class="download-table-option" data-format="pdf" data-table="emailTable">as PDF</a>
+                                   </div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="emailTable" class="w-full"></table></div>
+                    </div>
+                </div>
+
+                <div class="page-pane" id="forwarding-page">
+                    <h2 class="text-2xl font-bold text-white mb-6">Email Forwarding</h2>
+                     <div id="forwardingCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
+                     <div class="glass-card p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                             <div class="flex items-center space-x-2 bg-slate-800/50 p-1 rounded-lg">
+                                <button data-filter="all" class="forwarding-toggle user-type-toggle bg-slate-700 text-white px-3 py-1.5 text-sm font-semibold rounded-md">All Users</button>
+                                <button data-filter="admin" class="forwarding-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">Admin Users</button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="forwardingTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search...">
+                                <div class="download-dropdown">
+                                   <button class="download-btn-main bg-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">Download</button>
+                                   <div class="download-options">
+                                       <a href="#" class="download-table-option" data-format="csv" data-table="forwardingTable">as CSV</a>
+                                       <a href="#" class="download-table-option" data-format="pdf" data-table="forwardingTable">as PDF</a>
+                                   </div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="forwardingTable" class="w-full"></table></div>
+                    </div>
+                </div>
+
+                <div class="page-pane" id="protocol-page">
+                    <h2 class="text-2xl font-bold text-white mb-6">Mail Protocols</h2>
+                    <div id="protocolCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
+                     <div class="glass-card p-6">
+                        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                             <div class="flex items-center space-x-2 bg-slate-800/50 p-1 rounded-lg">
+                                <button data-filter="all" class="protocol-toggle user-type-toggle bg-slate-700 text-white px-3 py-1.5 text-sm font-semibold rounded-md">All Users</button>
+                                <button data-filter="admin" class="protocol-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">Admin Users</button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="protocolTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search...">
+                                <div class="download-dropdown">
+                                   <button class="download-btn-main bg-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">Download</button>
+                                   <div class="download-options">
+                                       <a href="#" class="download-table-option" data-format="csv" data-table="protocolTable">as CSV</a>
+                                       <a href="#" class="download-table-option" data-format="pdf" data-table="protocolTable">as PDF</a>
+                                   </div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="protocolTable" class="w-full"></table></div>
+                    </div>
+                </div>
+                
+                <div class="page-pane" id="apps-page">
+                     <h2 class="text-2xl font-bold text-white mb-6">App Access</h2>
+                    <div id="appsCardContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
+                    <div class="glass-card p-6">
+                         <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                            <div class="flex items-center space-x-2 bg-slate-800/50 p-1 rounded-lg">
+                                <button data-filter="all" class="apps-toggle user-type-toggle bg-slate-700 text-white px-3 py-1.5 text-sm font-semibold rounded-md">All Users</button>
+                                <button data-filter="admin" class="apps-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">Admin Users</button>
+                                <button data-filter="highrisk" class="apps-toggle user-type-toggle px-3 py-1.5 text-sm font-semibold rounded-md">High-Risk Apps</button>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <input type="text" id="appsTableSearch" class="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg w-64 p-2.5" placeholder="Search...">
+                                <div class="download-dropdown">
+                                   <button class="download-btn-main bg-slate-700 px-4 py-2.5 rounded-lg text-sm font-semibold">Download</button>
+                                   <div class="download-options">
+                                       <a href="#" class="download-table-option" data-format="csv" data-table="appsTable">as CSV</a>
+                                       <a href="#" class="download-table-option" data-format="pdf" data-table="appsTable">as PDF</a>
+                                   </div>
+                               </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto"><table id="appsTable" class="w-full"></table></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 z-40 hidden items-center justify-center">
+        <div class="glass-card rounded-lg shadow-xl w-full max-w-2xl m-4">
+            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 class="text-lg font-semibold text-white">Settings</h3>
+                <button id="close-settings-btn" class="text-slate-400 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 border-b border-slate-700">
+                    <nav class="flex -mb-px">
+                        <button class="settings-tab-btn active text-slate-300 py-2 px-4 border-b-2" data-tab="personalization">Personalization</button>
+                        <button class="settings-tab-btn text-slate-300 py-2 px-4 border-b-2 border-transparent" data-tab="data">Data & Refresh</button>
+                        <button class="settings-tab-btn text-slate-300 py-2 px-4 border-b-2 border-transparent" data-tab="scheduling">Scheduling</button>
+                    </nav>
+                </div>
+                <div id="personalization-tab" class="settings-tab-content active space-y-4">
+                    <!-- Personalization content -->
+                    <div>
+                        <label for="themeSelector" class="block text-sm font-medium text-slate-300">Theme</label>
+                        <select id="themeSelector" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3">
+                            <option value="dark">Dark Mode</option>
+                            <option value="light">Light Mode</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="defaultViewSelector" class="block text-sm font-medium text-slate-300">Default View on Load</label>
+                        <select id="defaultViewSelector" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3">
+                            <option value="overview">Overview</option>
+                            <option value="iam">IAM</option>
+                            <option value="email">Email Security</option>
+                            <option value="forwarding">Forwarding</option>
+                            <option value="protocol">Mail Protocol</option>
+                            <option value="apps">App Access</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="data-tab" class="settings-tab-content space-y-4">
+                    <!-- Data & Refresh content -->
+                     <div>
+                        <h4 class="text-sm font-medium text-slate-300 mb-2">User Credentials</h4>
+                        <div id="credentials-container" class="space-y-2 text-sm p-3 bg-slate-800/50 rounded-lg">
+                            <!-- Credentials will be loaded here -->
+                            <p class="text-slate-400">Loading credentials...</p>
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <h4 class="text-sm font-medium text-slate-300">Data Management</h4>
+                        <p class="text-xs text-slate-400 mb-2">The dashboard shows the last fetched data. Run a scan to get the latest information.</p>
+                        <button id="clearCacheBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md">
+                            Clear Cache & Force Refresh
+                        </button>
+                    </div>
+                </div>
+                <div id="scheduling-tab" class="settings-tab-content space-y-4">
+                    <!-- Scheduling content -->
+                    <h4 class="text-sm font-medium text-slate-300">Automated Daily Scan</h4>
+                     <div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                        <label for="cron-toggle" class="font-medium text-slate-300">Enable Daily Scan</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cron-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="cron-time-container" class="hidden">
+                        <label for="cron-time" class="block text-sm font-medium text-slate-300 mb-1">Time to run scan (IST)</label>
+                        <input type="time" id="cron-time" class="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3">
+                    </div>
+                    <button id="saveScheduleBtn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md mt-4">
+                        Save Schedule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    
+    <script>
+        // Use jspdf in a way that avoids browser compatibility issues
+        const { jsPDF } = window.jspdf;
+
+        // =================== STATE MANAGEMENT ===================
+        let allUsersData = [];
+        let allAlertsData = []; 
+        let dtInstances = {};
+        let chartInstances = {};
+        let currentPage = 'overview';
+        let userSettings = {
+            theme: 'dark',
+            defaultView: 'overview',
+        };
+        let currentDataTimestamp = null;
+        let refreshIntervalId = null; 
+
+        // =================== HELPER FUNCTIONS ===================
+        const badge = (val, type, details = '') => {
+             let text = String(val);
+             let detailsHtml = details ? ` title="${details}"` : '';
+            if (type === 'good') return `<span class="font-semibold text-green-400"${detailsHtml}>${text}</span>`;
+            if (type === 'bad') return `<span class="font-semibold text-red-400"${detailsHtml}>${text}</span>`;
+            return `<span class="text-slate-400"${detailsHtml}>${text}</span>`;
+        };
+        const formatDate = (d) => d ? new Date(d).toLocaleDateString() : "—";
+        const animateValue = (el, start, end, duration) => {
+            if (!el || typeof end !== 'number') { if (el) el.textContent = end; return; }
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                el.textContent = Math.floor(progress * (end - start) + start);
+                if (progress < 1) window.requestAnimationFrame(step);
+            };
+            window.requestAnimationFrame(step);
+        };
+
+        // =================== UI & NAVIGATION ===================
+        function showPage(pageName) {
+            currentPage = pageName;
+            
+            document.querySelectorAll('.nav-link').forEach(l => {
+                const parent = l.closest('#email-nav-item');
+                if (parent) {
+                    const isEmailSubPage = ['forwarding', 'protocol'].includes(pageName);
+                    parent.querySelector('a[data-page="email"]').classList.toggle('bg-slate-700', isEmailSubPage || pageName === 'email');
+                    parent.querySelector('a[data-page="email"]').classList.toggle('text-white', isEmailSubPage || pageName === 'email');
+                } else {
+                    l.classList.toggle('bg-slate-700', l.dataset.page === pageName);
+                    l.classList.toggle('text-white', l.dataset.page === pageName);
+                }
+            });
+            document.querySelectorAll('.page-pane').forEach(p => { p.classList.toggle('active', p.id === `${pageName}-page`); });
+            
+            if (allUsersData.length > 0) {
+                renderPageContent(pageName);
+            }
+        }
+        
+        function setupNavigation() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation();
+                    showPage(link.dataset.page); 
+                });
+            });
+
+             $('#email-nav-item > a').on('click', function(e) {
+                e.preventDefault();
+                const submenu = $('#email-submenu');
+                const arrow = $('#email-submenu-arrow');
+                submenu.toggleClass('hidden');
+                arrow.toggleClass('rotate-180');
+                if (!submenu.hasClass('hidden')) {
+                     showPage('email');
+                }
+            });
+
+             document.getElementById('overviewCardContainer').addEventListener('click', (event) => {
+                const card = event.target.closest('.clickable');
+                if (card && card.dataset.targetPage) { showPage(card.dataset.targetPage); }
+            });
+            document.querySelectorAll('.user-type-toggle').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const filterType = event.target.dataset.filter;
+                    const pagePrefix = currentPage;
+
+                    document.querySelectorAll(`.${pagePrefix}-toggle`).forEach(btn => {
+                        btn.classList.remove('bg-slate-700', 'text-white');
+                    });
+                    event.target.classList.add('bg-slate-700', 'text-white');
+
+                    let filteredData = allUsersData;
+                    if (filterType === 'admin') {
+                        filteredData = allUsersData.filter(u => u.isAdmin);
+                    } else if (filterType === 'highrisk' && pagePrefix === 'apps') {
+                         filteredData = allUsersData.filter(u => u.highRiskApps > 0);
+                    }
+                    
+                    renderPageContent(pagePrefix, filteredData, true); // Rerender cards for the filtered view
+                });
+            });
+            document.getElementById('sidebarToggleBtn').addEventListener('click', () => {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('w-64');
+                sidebar.classList.toggle('w-0');
+                sidebar.classList.toggle('p-4');
+                sidebar.classList.toggle('p-0');
+            });
+        }
+
+        // =================== DATA RENDERING & SCORING ===================
+        function calculateOverallSecurityScore(data) {
+            const totalUsers = data.length;
+            if (totalUsers === 0) return '0%';
+            const weights = { mfa: 0.40, apps: 0.25, protocol: 0.20, forwarding: 0.15 };
+            const mfaScore = data.filter(u => u.mfaEnrolled).length / totalUsers;
+            const appsScore = data.filter(u => u.highRiskApps === 0).length / totalUsers;
+            const protocolScore = data.filter(u => !u.popAccess && !u.imapAccess).length / totalUsers;
+            const forwardingScore = data.filter(u => !u.forwardingExternal).length / totalUsers;
+            const finalScore = (mfaScore * weights.mfa) + (appsScore * weights.apps) + (protocolScore * weights.protocol) + (forwardingScore * weights.forwarding);
+            return `${Math.round(finalScore * 100)}%`;
+        }
+
+        function calculateIamScore(data) {
+            const total = data.length;
+            if (total === 0) return '0%';
+            const mfaEnabled = data.filter(u => u.mfaEnrolled).length;
+            const suspended = data.filter(u => u.suspended).length;
+            const activeUsers = total - suspended;
+            if (activeUsers === 0) return '100%';
+            const score = (mfaEnabled / activeUsers) * 100;
+            return `${Math.round(score)}%`;
+        }
+
+        function calculateEmailScore(data) {
+             const total = data.length;
+            if (total === 0) return '0%';
+            const usersWithAlerts = new Set([
+                ...data.filter(u => u.phishingAlerts > 0).map(u => u.primaryEmail),
+                ...data.filter(u => u.unusualLogins).map(u => u.primaryEmail)
+            ]).size;
+            // A simple scoring: 100% minus 5% for each user with any kind of alert.
+            const score = 100 - (usersWithAlerts / total * 5);
+            return `${Math.max(0, Math.round(score))}%`;
+        }
+
+        function calculateForwardingScore(data) {
+            const total = data.length;
+            if (total === 0) return '0%';
+            const score = data.filter(u => !u.forwardingExternal).length / total * 100;
+            return `${Math.round(score)}%`;
+        }
+        
+        function calculateProtocolScore(data) {
+            const total = data.length;
+            if (total === 0) return '0%';
+            const score = data.filter(u => !u.popAccess && !u.imapAccess && !u.smtpAccess).length / total * 100;
+            return `${Math.round(score)}%`;
+        }
+
+        function calculateAppsScore(data) {
+             const total = data.length;
+            if (total === 0) return '0%';
+            const score = data.filter(u => u.highRiskApps === 0).length / total * 100;
+            return `${Math.round(score)}%`;
+        }
+
+        
+        function renderCards(containerId, cardData) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = cardData.map((kpi, i) => {
+                const valueId = `${containerId}-val-${i}`;
+                const initialValue = kpi.isScore ? kpi.value : '0';
+                const clickableClass = kpi.targetPage ? 'clickable' : '';
+                const glowClass = kpi.isScore ? 'glow-border' : '';
+                let html = `<div class="glass-card p-4 flex flex-col justify-between ${clickableClass} ${glowClass}" data-target-page="${kpi.targetPage || ''}">
+                                <p class="text-slate-300 text-sm font-medium">${kpi.label}</p>
+                                <p id="${valueId}" class="text-3xl font-bold ${kpi.color || 'text-white'} mt-2">${initialValue}</p>
+                            </div>`;
+                setTimeout(() => {
+                    const el = document.getElementById(valueId);
+                    if (el && !kpi.isScore) animateValue(el, 0, kpi.value, 800);
+                }, 50);
+                return html;
+            }).join('');
+        }
+
+        function getCardData(pageName, data) {
+            const scoreCalculators = {
+                overview: { score: calculateOverallSecurityScore(allUsersData), label: 'GWS Security Score' },
+                iam: { score: calculateIamScore(data), label: 'IAM Security Score' },
+                email: { score: calculateEmailScore(data), label: 'Email Security Score' },
+                forwarding: { score: calculateForwardingScore(data), label: 'Forwarding Security Score' },
+                protocol: { score: calculateProtocolScore(data), label: 'Protocol Security Score' },
+                apps: { score: calculateAppsScore(data), label: 'App Security Score' }
+            };
+
+            const { score, label } = scoreCalculators[pageName];
+            const secureScoreCard = { label, value: score, color: 'text-cyan-400', isScore: true };
+            
+            switch (pageName) {
+                case 'overview':
+                    return [
+                         { ...secureScoreCard, targetPage: 'overview' },
+                         { label: 'Total Users', value: allUsersData.length, targetPage: 'iam' },
+                         { label: 'MFA Enabled', value: allUsersData.filter(u => u.mfaEnrolled).length, targetPage: 'iam', color: 'text-green-400' },
+                         { label: 'Suspended Accounts', value: allUsersData.filter(u => u.suspended).length, targetPage: 'iam', color: 'text-yellow-400' },
+                         { label: 'Phishing Alerts', value: allUsersData.reduce((s, u) => s + u.phishingAlerts, 0), color: 'text-red-400', targetPage: 'email' },
+                         { label: 'Auto-Forwarding', value: allUsersData.filter(u => u.forwardingEnabled).length, color: 'text-yellow-400', targetPage: 'forwarding'},
+                         { label: 'POP3 Enabled', value: allUsersData.filter(u => u.popAccess).length, color: 'text-yellow-400', targetPage: 'protocol'},
+                         { label: 'SMTP Enabled', value: allUsersData.filter(u => u.smtpAccess).length, color: 'text-yellow-400', targetPage: 'protocol'},
+                         { label: 'IMAP Enabled', value: allUsersData.filter(u => u.imapAccess).length, color: 'text-yellow-400', targetPage: 'protocol'},
+                         { label: 'Users with App Access', value: allUsersData.filter(u => u.authorizedApps > 0).length, targetPage: 'apps'},
+                         { label: 'Total App Registrations', value: allUsersData.reduce((s,u) => s + u.authorizedApps, 0), targetPage: 'apps'}
+                     ];
+                case 'iam': return [secureScoreCard, { label: 'Total Users', value: data.length }, { label: 'Admin Users', value: data.filter(u => u.isAdmin).length }, { label: 'Suspended Accounts', value: data.filter(u => u.suspended).length, color: 'text-red-400' }];
+                case 'email': return [secureScoreCard, { label: 'Phishing Alerts (30d)', value: data.reduce((s,u)=>s+u.phishingAlerts,0), color: 'text-yellow-400' }, {label: 'Suspicious Logins', value: data.filter(u => u.unusualLogins).length, color: 'text-red-400'}];
+                case 'forwarding': return [secureScoreCard, { label: 'External Forwarding', value: data.filter(u => u.forwardingExternal).length, color: 'text-red-400' }, {label: 'Any Forwarding', value: data.filter(u => u.forwardingEnabled).length, color: 'text-yellow-400'}];
+                case 'protocol': return [secureScoreCard, { label: 'POP/IMAP Enabled', value: data.filter(u => u.popAccess || u.imapAccess).length, color: 'text-yellow-400' }, {label: 'SMTP Access', value: data.filter(u => u.smtpAccess).length, color: 'text-yellow-400'}];
+                case 'apps': return [secureScoreCard, { label: 'Users with High-Risk Apps', value: data.filter(u => u.highRiskApps > 0).length, color: 'text-red-400' }, { label: 'Total Connected Apps', value: data.reduce((s, u) => s + (u.authorizedApps || 0), 0) }];
+                default: return [];
+            }
+        }
+        
+        function renderPageContent(pageName, data = allUsersData, renderCardsFlag = true) {
+            if (renderCardsFlag && pageName !== 'alert_center') {
+                renderCards(`${pageName}CardContainer`, getCardData(pageName, data));
+            }
+            
+            const pageActionMap = { 
+                'overview': buildOverviewPage, 
+                'alert_center': buildAlertCenterPage,
+                'iam': buildIamTable, 
+                'email': buildEmailPage, 
+                'forwarding': buildForwardingTable, 
+                'protocol': buildProtocolTable, 
+                'apps': buildAppsTable 
+            };
+            if(pageActionMap[pageName]) pageActionMap[pageName](data);
+        }
+
+        function buildAlertCenterPage() {
+             const rows = allAlertsData.map(a => ([
+                a.type || 'N/A',
+                a.data?.affectedUserEmails?.join(', ') || 'Domain-wide',
+                new Date(a.createTime).toLocaleString(),
+                a.severity || 'N/A',
+                a.status || 'N/A'
+            ]));
+            initializeDataTable('alertCenterTable', rows, [
+                { title: "Summary" }, { title: "Affected User" },
+                { title: "Last Updated" }, { title: "Severity" }, { title: "Status" }
+            ]);
+        }
+
+        function buildOverviewPage() {
+            renderCards('overviewCardContainer', getCardData('overview', allUsersData));
+            buildOverviewCharts();
+        }
+
+        function buildEmailPage(data) {
+            renderEmailSecuritySettings();
+            buildEmailUserAlertsTable(data);
+        }
+
+        function buildOverviewCharts() {
+            // MFA Chart
+            const mfaEnabled = allUsersData.filter(u => u.mfaEnrolled).length;
+            const mfaDisabled = allUsersData.length - mfaEnabled;
+            const mfaCtx = document.getElementById('mfaChart').getContext('2d');
+            if (chartInstances.mfaChart) { chartInstances.mfaChart.destroy(); }
+            chartInstances.mfaChart = new Chart(mfaCtx, {
+                type: 'doughnut', data: { labels: ['MFA Enabled', 'MFA Disabled'], datasets: [{ data: [mfaEnabled, mfaDisabled], backgroundColor: ['rgba(16, 185, 129, 0.7)', 'rgba(239, 68, 68, 0.7)'], borderColor: ['#10B981', '#EF4444'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: userSettings.theme === 'dark' ? '#d1d5db' : '#475569' } } } }
+            });
+
+            // Forwarding Chart
+            const fwdExternal = allUsersData.filter(u => u.forwardingExternal).length;
+            const fwdInternal = allUsersData.filter(u => u.forwardingEnabled && !u.forwardingExternal).length;
+            const fwdNone = allUsersData.length - (fwdExternal + fwdInternal);
+            const fwdCtx = document.getElementById('forwardingChart').getContext('2d');
+            if (chartInstances.forwardingChart) { chartInstances.forwardingChart.destroy(); }
+            chartInstances.forwardingChart = new Chart(fwdCtx, {
+                type: 'doughnut', data: { labels: ['External', 'Internal', 'None'], datasets: [{ data: [fwdExternal, fwdInternal, fwdNone], backgroundColor: ['rgba(239, 68, 68, 0.7)', 'rgba(234, 179, 8, 0.7)', 'rgba(16, 185, 129, 0.7)'], borderColor: ['#EF4444', '#EAB308', '#10B981'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: userSettings.theme === 'dark' ? '#d1d5db' : '#475569' } } } }
+            });
+        }
+        
+        function initializeDataTable(tableId, data, columns) {
+            if ($.fn.dataTable.isDataTable(`#${tableId}`)) { $(`#${tableId}`).DataTable().clear().destroy(); }
+            dtInstances[tableId] = $(`#${tableId}`).DataTable({ 
+                data, columns, pageLength: 10, responsive: false,
+                dom: 't<"flex justify-between items-center pt-4"lip>',
+                language: { lengthMenu: "Show _MENU_", info: "Showing _START_ to _END_ of _TOTAL_", paginate: { previous: "Prev", next: "Next" } }
+            });
+            $(`#${tableId}Search`).off('keyup').on('keyup', function() { dtInstances[tableId].search(this.value).draw(); });
+        }
+        
+        function buildIamTable(data) {
+            const rows = data.map(u => ([ 
+                u.primaryEmail, u.name, formatDate(u.accountCreated), formatDate(u.lastLogin), 
+                badge(u.isAdmin ? 'Yes' : 'No', u.isAdmin ? 'bad' : 'good'), 
+                badge(u.suspended ? 'Yes' : 'No', u.suspended ? 'bad' : 'good'), 
+                formatDate(u.passwordLastChanged),
+                badge(u.recoveryPhone !== 'Not Set' ? 'Set' : 'Not Set', u.recoveryPhone !== 'Not Set' ? 'good' : 'bad'),
+                u.contactPhone,
+                badge(u.mfaEnrolled ? 'Yes':'No', u.mfaEnrolled ? 'good':'bad'), 
+                formatDate(u.mfaEnrollmentDate), 
+                badge(u.unusualLogins ? 'Yes':'No', u.unusualLogins ? 'bad':'good'), 
+                u.successfulLogins, u.failedLogins
+            ]));
+            initializeDataTable('iamTable', rows, [ 
+                {title:"Primary Email"}, {title:"Name"}, {title:"Account Created"}, {title:"Last Login"},
+                {title:"Is Admin"}, {title:"Suspended"}, {title:"Password Last Changed"}, {title:"Recovery Phone"}, {title:"Primary/Secondary Number"},
+                {title:"MFA Enabled"}, {title:"MFA Enrolled Date"},  {title:"Unusual Logins"},
+                {title:"Success Logins"}, {title:"Failed Logins"}
+            ]);
+        }
+        
+        function buildEmailUserAlertsTable(data) {
+            const rows = data.map(u => ([ 
+                u.primaryEmail, badge(u.alertsEnabled ? 'Yes' : 'No', u.alertsEnabled ? 'good' : 'good'),
+                u.phishingAlerts, u.alertSummary, u.phishingSpamReports || 'N/A' 
+            ]));
+            initializeDataTable('emailTable', rows, [ 
+                {title:"Primary Email"}, {title:"Alerts Enabled"}, {title:"Phishing Alerts"},
+                {title:"Alert Summary"}, {title:"Phishing/Spam Reports"} 
+            ]);
+        }
+
+        function renderEmailSecuritySettings() {
+            const container = document.getElementById('emailSettingsContainer');
+            const settings = cachedData.domainEmailSettings || [];
+            container.innerHTML = settings.map(setting => `
+                <div class="glass-card p-4 flex justify-between items-center">
+                    <span class="font-medium">${setting.name}</span>
+                    ${badge(setting.status, setting.type, setting.details)}
+                </div>
+            `).join('');
+        }
+
+        
+        function buildForwardingTable(data){
+             const rows = data.map(u => ([ u.primaryEmail, badge(u.forwardingEnabled ? 'Yes':'No', u.forwardingEnabled ? 'bad':'good'), u.forwardingAddresses, badge(u.forwardingExternal ? 'Yes':'No', u.forwardingExternal ? 'bad':'good'), u.configError || 'None' ]));
+            initializeDataTable('forwardingTable', rows, [ {title:"Primary Email"},{title:"Forwarding Enabled"},{title:"Forwarding Addresses"},{title:"Forwarding External"},{title:"Config Error"} ]);
+        }
+
+        function buildProtocolTable(data){
+            const rows = data.map(u => ([ u.primaryEmail, badge(u.smtpAccess ? 'Yes':'No', u.smtpAccess ? 'bad':'good'), badge(u.imapAccess ? 'Yes':'No', u.imapAccess ? 'bad':'good'), badge(u.popAccess ? 'Yes':'No', u.popAccess ? 'bad':'good'), badge(u.mobileAccess ? 'Yes':'No', u.mobileAccess ? 'good':'bad') ]));
+            initializeDataTable('protocolTable', rows, [ {title:"Primary Email"},{title:"SMTP Access"},{title:"IMAP Access"},{title:"POP3 Access"},{title:"Mobile Access"} ]);
+        }
+
+        function buildAppsTable(data) {
+            const rows = data.map(u => {
+                const appNames = u.appNames || [];
+                let appHtml = `<div class="app-names-container" data-full-text="${appNames.join(', ').replace(/"/g, '&quot;')}">`;
+                if (appNames.length > 4) {
+                    appHtml += `${appNames.slice(0, 4).join(', ')} <a href="#" class="read-more-apps">...and ${appNames.length - 4} more</a>`;
+                } else {
+                    appHtml += appNames.join(', ') || 'No Apps';
+                }
+                appHtml += `</div>`;
+                return [ u.primaryEmail, u.authorizedApps, appHtml, badge(u.highRiskApps, u.highRiskApps > 0 ? 'bad' : 'good'), u.highRiskSummary ];
+            });
+            initializeDataTable('appsTable', rows, [ {title:"Primary Email"}, {title:"Apps"}, {title:"App Names", className: "app-names-cell"}, {title:"High-Risk"}, {title:"High-Risk Summary"} ]);
+        }
+        
+        $('body').on('click', '.read-more-apps', function(e) {
+            e.preventDefault();
+            const container = $(this).closest('.app-names-container');
+            const fullText = container.data('full-text');
+            const appNames = fullText.split(',').map(name => name.trim());
+            
+            // Create a vertical list
+            const fullHtml = `<ul class="list-disc list-inside pl-2">${appNames.map(name => `<li>${name}</li>`).join('')}</ul>`;
+            
+            container.data('short-html', container.html());
+            container.html(fullHtml + ' <a href="#" class="show-less-apps block mt-2">(Show Less)</a>');
+        });
+        $('body').on('click', '.show-less-apps', function(e) {
+            e.preventDefault();
+            $(this).closest('.app-names-container').html($(this).closest('.app-names-container').data('short-html'));
+        });
+
+        // =================== SETTINGS MODAL ===================
+        function setupSettingsModal() {
+            const settingsModal = document.getElementById('settings-modal');
+            document.getElementById('settingsBtn').addEventListener('click', () => {
+                loadCredentials();
+                loadSchedule();
+                settingsModal.classList.remove('hidden');
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+            settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); });
+
+            document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    document.querySelectorAll('.settings-tab-btn').forEach(b => {
+                        b.classList.remove('active');
+                        b.classList.add('border-transparent');
+                    });
+                    btn.classList.add('active');
+                    btn.classList.remove('border-transparent');
+                    document.querySelectorAll('.settings-tab-content').forEach(c => c.classList.toggle('active', c.id === `${tabId}-tab`));
+                });
+            });
+
+            document.getElementById('themeSelector').addEventListener('change', (e) => { userSettings.theme = e.target.value; applyTheme(); saveSettings(); });
+            document.getElementById('defaultViewSelector').addEventListener('change', (e) => { userSettings.defaultView = e.target.value; saveSettings(); });
+            document.getElementById('clearCacheBtn').addEventListener('click', () => { settingsModal.classList.add('hidden'); runCheck(); });
+
+            document.getElementById('cron-toggle').addEventListener('change', function() {
+                document.getElementById('cron-time-container').classList.toggle('hidden', !this.checked);
+            });
+            document.getElementById('saveScheduleBtn').addEventListener('click', async () => {
+                const enabled = $('#cron-toggle').is(':checked');
+                const time = $('#cron-time').val();
+                
+                try {
+                    const response = await fetch('/api/schedule', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled, time })
+                    });
+                    if (!response.ok) throw new Error('Failed to save schedule');
+                    console.log('Schedule saved!');
+                    setupAutoRefreshPolling(); // Re-initialize polling after schedule change
+                } catch (error) {
+                    console.error('Error saving schedule:', error);
+                }
+                settingsModal.classList.add('hidden');
+            });
+        }
+        
+        function loadSettings() { 
+            const saved = localStorage.getItem('gwsUserSettings');
+            if (saved) { userSettings = JSON.parse(saved); }
+            currentPage = userSettings.defaultView || 'overview';
+            document.getElementById('themeSelector').value = userSettings.theme;
+            document.getElementById('defaultViewSelector').value = userSettings.defaultView;
+            applyTheme();
+        }
+        function saveSettings() { localStorage.setItem('gwsUserSettings', JSON.stringify(userSettings)); }
+        function applyTheme() { 
+            document.body.classList.toggle('light-mode', userSettings.theme === 'light');
+             Object.values(chartInstances).forEach(chart => {
+                if (chart) {
+                    chart.options.plugins.legend.labels.color = userSettings.theme === 'dark' ? '#d1d5db' : '#475569';
+                    chart.update();
+                }
+            });
+        }
+
+        async function loadCredentials() {
+            const container = document.getElementById('credentials-container');
+            try {
+                const response = await fetch('/api/config/view');
+                if (!response.ok) throw new Error('Failed to fetch credentials');
+                const creds = await response.json();
+                container.innerHTML = `
+                    <p><span class="font-medium text-slate-300">Admin User:</span> <span class="text-slate-400">${creds.adminUser}</span></p>
+                    <p><span class="font-medium text-slate-300">Project ID:</span> <span class="text-slate-400">${creds.projectId}</span></p>
+                    <p><span class="font-medium text-slate-300">Client Email:</span> <span class="text-slate-400">${creds.clientEmail}</span></p>`;
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">Could not load credentials.</p>`;
+            }
+        }
+
+        async function loadSchedule() {
+            try {
+                const response = await fetch('/api/schedule');
+                if (!response.ok) throw new Error('Failed to fetch schedule');
+                const schedule = await response.json();
+                $('#cron-toggle').prop('checked', schedule.enabled);
+                $('#cron-time').val(schedule.time);
+                $('#cron-time-container').toggleClass('hidden', !schedule.enabled);
+            } catch (error) {
+                console.error("Could not load schedule", error);
+            }
+        }
+
+        // =================== DATA EXPORT (CSV & PDF) ===================
+        function downloadCSV(tableId, isAll = false) {
+             const table = dtInstances[tableId];
+            if(!table && !isAll) return;
+            const headers = isAll ? Object.keys(allUsersData[0]) : table.columns().header().toArray().map(header => $(header).text());
+            const data = isAll 
+                ? allUsersData.map(user => headers.map(header => {
+                    const value = user[header];
+                    return Array.isArray(value) ? value.join('; ') : value;
+                  }))
+                : table.rows({ search: 'applied' }).data().toArray();
+
+            const sanitizeCell = (cell) => {
+                let text = String(cell == null ? '' : cell).replace(/<[^>]*>?/gm, '');
+                text = text.replace(/"/g, '""');
+                return text.includes(',') ? `"${text}"` : text;
+            };
+            const csvRows = [headers.join(',')];
+            data.forEach(row => { csvRows.push(row.map(sanitizeCell).join(',')); });
+            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${isAll ? 'GWS_All_Users' : tableId}_Report.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        $('body').on('click', '.download-btn-main', function() {
+            $(this).next('.download-options').toggleClass('show-dropdown');
+        });
+        $('body').on('click', '.download-table-option', function(e) { e.preventDefault(); const format = $(this).data('format'); const tableId = $(this).data('table'); if (format === 'csv') { downloadCSV(tableId); } else if (format === 'pdf') { downloadPDF(tableId); } $(this).closest('.download-options').removeClass('show-dropdown'); });
+        $('body').on('click', '.download-all-option', function(e) { e.preventDefault(); const format = $(this).data('format'); if (format === 'csv') { downloadCSV(null, true); } else if (format === 'pdf') { downloadPDF(null, true); } $(this).closest('.download-options').removeClass('show-dropdown'); });
+        $(window).on('click', function(e) {
+            if (!$(e.target).closest('.download-dropdown').length) {
+                $('.download-options').removeClass('show-dropdown');
+            }
+        });
+
+        function downloadPDF(tableId, isAll = false) {
+            const doc = new jsPDF({ orientation: 'landscape' });
+            let headers, body;
+
+            // Define a function to sanitize data for the PDF
+            const sanitizeForPdf = (value) => {
+                if (value === null || typeof value === 'undefined') return '';
+                if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+                // Strip HTML tags for data coming from tables
+                let text = String(value).replace(/<[^>]*>?/gm, '');
+                // Truncate long strings to prevent overflow
+                return text.length > 50 ? text.substring(0, 47) + '...' : text;
+            };
+
+            if (isAll) {
+                // For the "All Users" report, use a curated set of important columns
+                headers = [['Primary Email', 'Name', 'Is Admin', 'Suspended', 'MFA Enrolled', 'Last Login', 'High-Risk Apps', 'External Forwarding']];
+                body = allUsersData.map(user => [
+                    sanitizeForPdf(user.primaryEmail),
+                    sanitizeForPdf(user.name),
+                    sanitizeForPdf(user.isAdmin),
+                    sanitizeForPdf(user.suspended),
+                    sanitizeForPdf(user.mfaEnrolled),
+                    sanitizeForPdf(formatDate(user.lastLogin)),
+                    sanitizeForPdf(user.highRiskApps),
+                    sanitizeForPdf(user.forwardingExternal)
+                ]);
+            } else {
+                // For specific table downloads
+                const table = dtInstances[tableId];
+                if (!table) {
+                    console.error('DataTable instance not found for', tableId);
+                    return;
+                }
+                headers = [table.columns().header().toArray().map(h => $(h).text())];
+                body = table.rows({ search: 'applied' }).data().toArray().map(row => 
+                    row.map(cell => sanitizeForPdf(cell))
+                );
+            }
+
+            doc.autoTable({
+                head: headers,
+                body: body,
+                // Aggressive styling to ensure content fits
+                styles: { 
+                    fontSize: 6, 
+                    cellPadding: 1,
+                    overflow: 'linebreak'
+                },
+                headStyles: { 
+                    fillColor: [41, 128, 185], // A professional blue color
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                margin: { top: 10, right: 7, bottom: 10, left: 7 },
+                tableWidth: 'auto', // Let the library manage width
+            });
+
+            doc.save(`${isAll ? 'GWS_All_Users' : tableId}_Report.pdf`);
+        }
+
+        // =================== DATA FETCHING & AUTO-REFRESH ===================
+        async function runCheck(isAutoRefresh = false){
+            if (!isAutoRefresh) {
+                $('#runBtn').prop('disabled', true);
+                $('#runBtnText').text('Running...');
+                $('#summaryStatus').text('Fetching data from Google APIs...');
+                $('#loader').removeClass('hidden');
+            }
+
+            try {
+                const res = await fetch('/api/run');
+                if (res.status === 401) { window.location.href = '/login'; return; }
+                const j = await res.json();
+                if (!j.ok) throw new Error(j.error || 'Unknown fetch error');
+                
+                allUsersData = j.users || [];
+                allAlertsData = j.alerts || []; 
+                cachedData = j; // Store the whole payload
+                currentDataTimestamp = j.ts;
+                
+                if (j.currentUser) {
+                    $('#currentUserName').text(j.currentUser);
+                    $('#currentUserContainer').removeClass('hidden');
+                }
+
+                if (j.totalAlertCount > 0) {
+                    $('#notificationBadge').text(j.totalAlertCount).removeClass('hidden');
+                } else {
+                    $('#notificationBadge').addClass('hidden');
+                }
+
+                showPage(currentPage || 'overview');
+                $('#summaryStatus').text(`Scan Complete`);
+                $('#lastUpdatedTimestamp').text('Last updated: ' + new Date(j.ts).toLocaleString()).removeClass('hidden');
+            } catch(err) {
+                $('#summaryStatus').text(`Error: ${err.message}`);
+            } finally {
+                if (!isAutoRefresh) {
+                    $('#loader').addClass('hidden');
+                    $('#runBtn').prop('disabled', false);
+                    $('#runBtnText').text('Run Full Check');
+                }
+            }
+        }
+
+        async function checkForUpdates() {
+            if (!currentDataTimestamp) return;
+
+            try {
+                const res = await fetch('/api/latest');
+                if (!res.ok) return;
+                const j = await res.json();
+                if (j.ok && j.ts && j.ts !== currentDataTimestamp) {
+                    const notification = $('#update-notification');
+                    notification.find('span').text('Dashboard has been updated!');
+                    notification.removeClass('hidden');
+                    await runCheck(true); // Automatically refresh
+                    setTimeout(() => {
+                        notification.addClass('hidden');
+                    }, 4000);
+                }
+            } catch(err) {
+                console.warn('Update check failed:', err);
+            }
+        }
+        
+        // =================== INITIALIZATION ===================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            setupNavigation();
+            setupSettingsModal();
+            
+            // Initial data load from backend cache
+            (async function() {
+                try {
+                    const res = await fetch('/api/latest');
+                    if (res.status === 401) { window.location.href = '/login'; return; }
+                    if (!res.ok) return;
+
+                    const j = await res.json();
+                    if (j.ok && j.users) {
+                        allUsersData = j.users;
+                        allAlertsData = j.alerts || []; 
+                        cachedData = j;
+                        currentDataTimestamp = j.ts;
+                        if (j.currentUser) {
+                            $('#currentUserName').text(j.currentUser);
+                            $('#currentUserContainer').removeClass('hidden');
+                        }
+                        const alertCount = allAlertsData.length;
+                        if (alertCount > 0) {
+                            $('#notificationBadge').text(alertCount).removeClass('hidden');
+                        }
+                        showPage(currentPage);
+                        $('#summaryStatus').text(`Loaded cached data`);
+                        $('#lastUpdatedTimestamp').text('Last updated: ' + new Date(j.ts).toLocaleString()).removeClass('hidden');
+                    }
+                } catch (err) {
+                     $('#summaryStatus').text('Could not fetch initial data. Please run a scan.');
+                } finally {
+                    setupAutoRefreshPolling();
+                }
+            })();
+            
+             document.getElementById('runBtn').addEventListener('click', () => runCheck(false));
+             
+             // Setup alert dropdown toggle
+            $('#notificationBell').on('click', function(e) {
+                e.stopPropagation();
+                $('#alerts-dropdown').toggleClass('hidden');
+                $('#notificationBadge').addClass('hidden');
+                populateAlertsDropdown();
+            });
+            
+            // Close dropdown if clicked outside
+             $(window).on('click', function(e) {
+                if (!$(e.target).closest('.notification-bell').length) {
+                    $('#alerts-dropdown').addClass('hidden');
+                }
+            });
+        });
+
+        function populateAlertsDropdown() {
+            const dropdown = $('#alerts-dropdown');
+            dropdown.empty();
+            if (allAlertsData && allAlertsData.length > 0) {
+                 const header = `<div class="p-2 border-b border-slate-700 flex justify-between items-center">
+                                    <h4 class="font-semibold text-white">Alerts</h4>
+                                    <a href="#" data-page="alert_center" class="text-sm text-indigo-400 hover:underline nav-link">View all</a>
+                                 </div>`;
+                dropdown.append(header);
+
+                allAlertsData.slice(0, 5).forEach(alert => {
+                    const alertHtml = `
+                        <div class="p-2 border-b border-slate-700">
+                            <p class="font-semibold text-white text-sm">${alert.type}</p>
+                            <p class="text-xs text-slate-400 truncate">${alert.data?.affectedUserEmails?.join(', ') || 'Domain-wide alert'}</p>
+                        </div>
+                    `;
+                    dropdown.append(alertHtml);
+                });
+            } else {
+                 dropdown.append('<p class="p-4 text-sm text-slate-400">No new alerts.</p>');
+            }
+             // Re-attach nav-link listener for the "View all" link
+            $('#alerts-dropdown .nav-link').on('click', function(e) {
+                e.preventDefault();
+                showPage($(this).data('page'));
+                $('#alerts-dropdown').addClass('hidden');
+            });
+        }
+
+    </script>
+</body>
+</html>

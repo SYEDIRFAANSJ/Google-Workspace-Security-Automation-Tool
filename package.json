@@ -1,0 +1,36 @@
+{
+  "name": "gws-security-dashboard",
+  "version": "1.0.0",
+  "description": "Google Workspace Security Dashboard for CISO view",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.9.4",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-session": "^1.18.0",
+    "googleapis": "^133.0.0",
+    "node-cron": "^4.2.1",
+    "pino": "^8.21.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "google-workspace",
+    "security",
+    "dashboard",
+    "ciso",
+    "gws"
+  ],
+  "author": "Your Name / Team",
+  "license": "MIT"
+}
