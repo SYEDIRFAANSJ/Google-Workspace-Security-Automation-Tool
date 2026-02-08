@@ -18,3 +18,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Service account credentials (sensitive)
+service-account-key.json
+
+# Session files
+.sessions/

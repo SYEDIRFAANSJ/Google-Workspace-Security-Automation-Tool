@@ -89,16 +89,35 @@ function saveConfig(configData) {
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Use file-based session store to persist sessions across nodemon restarts
+const FileStore = require('session-file-store')(session);
 app.use(session({
+    store: new FileStore({
+        path: path.join(__dirname, '.sessions'),
+        ttl: 86400, // 24 hours
+        retries: 0
+    }),
     secret: APP_SECRET,
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production' }
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
 }));
 
 const requireLogin = (req, res, next) => {
+    LOG.info(`requireLogin: appConfig=${!!appConfig}, loggedIn=${!!req.session.loggedIn}`);
     if (appConfig && req.session.loggedIn) return next();
     res.redirect('/login');
+};
+
+// API-specific login check that returns JSON instead of redirect
+const requireApiLogin = (req, res, next) => {
+    LOG.info(`requireApiLogin: appConfig=${!!appConfig}, loggedIn=${!!req.session.loggedIn}`);
+    if (appConfig && req.session.loggedIn) return next();
+    res.status(401).json({ ok: false, error: 'Not authenticated' });
 };
 
 // --- Google Auth & API Logic ---
@@ -126,24 +145,24 @@ async function testCredentials(config) {
         LOG.info('Credential test successful.');
         return true;
     } catch (err) {
-        LOG.error({msg: 'Credential test failed', error: err.message});
+        LOG.error({ msg: 'Credential test failed', error: err.message });
         return false;
     }
 }
 
 async function listAllUsers() {
-  const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.user.readonly']);
-  await auth.authorize();
-  const admin = google.admin({ version: 'directory_v1', auth });
-  let users = [];
-  let pageToken = null;
-  do {
-    const res = await admin.users.list({ customer: 'my_customer', maxResults: 100, orderBy: 'email', projection: 'full', pageToken });
-    users = users.concat(res.data.users || []);
-    pageToken = res.data.nextPageToken;
-  } while (pageToken);
-  LOG.info(`Fetched ${users.length} users.`);
-  return users;
+    const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.user.readonly']);
+    await auth.authorize();
+    const admin = google.admin({ version: 'directory_v1', auth });
+    let users = [];
+    let pageToken = null;
+    do {
+        const res = await admin.users.list({ customer: 'my_customer', maxResults: 100, orderBy: 'email', projection: 'full', pageToken });
+        users = users.concat(res.data.users || []);
+        pageToken = res.data.nextPageToken;
+    } while (pageToken);
+    LOG.info(`Fetched ${users.length} users.`);
+    return users;
 }
 
 async function getAllAlerts(days = 30) {
@@ -164,17 +183,17 @@ async function getAllAlerts(days = 30) {
 }
 
 async function listMobileDevices() {
-  const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.device.mobile.readonly']);
-  await auth.authorize();
-  const admin = google.admin({ version: 'directory_v1', auth });
-  let devices = [];
-  let pageToken = null;
-  do {
-    const res = await admin.mobiledevices.list({ customerId: 'my_customer', maxResults: 100, pageToken });
-    devices = devices.concat(res.data.mobiledevices || []);
-    pageToken = res.data.nextPageToken || null;
-  } while (pageToken);
-  return devices;
+    const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.device.mobile.readonly']);
+    await auth.authorize();
+    const admin = google.admin({ version: 'directory_v1', auth });
+    let devices = [];
+    let pageToken = null;
+    do {
+        const res = await admin.mobiledevices.list({ customerId: 'my_customer', maxResults: 100, pageToken });
+        devices = devices.concat(res.data.mobiledevices || []);
+        pageToken = res.data.nextPageToken || null;
+    } while (pageToken);
+    return devices;
 }
 
 async function getLoginEventsForUser(userEmail, days = 30) {
@@ -251,7 +270,7 @@ async function getGmailSettingsForUser(userEmail) {
         }
         out.imapEnabled = imap.status === 'fulfilled' && !!imap.value.data.enabled;
         out.popEnabled = pop.status === 'fulfilled' && pop.value.data.accessWindow !== 'disabled';
-        
+
         const fwdAddrsRes = await gmail.users.settings.forwardingAddresses.list({ userId: 'me' });
         if (fwdAddrsRes.data.forwardingAddresses) {
             out.forwardingAddresses = fwdAddrsRes.data.forwardingAddresses.map(a => a.forwardingEmail);
@@ -279,24 +298,24 @@ async function getAdminRolesForUsers() {
     return assignmentsByEmail;
 }
 
-const HIGH_RISK_SCOPES = ['https://www.googleapis.com/auth/drive','https://www.googleapis.com/auth/gmail.modify','https://www.googleapis.com/auth/gmail.readonly','https://mail.google.com/'];
+const HIGH_RISK_SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.readonly', 'https://mail.google.com/'];
 async function getThirdPartyAppsForUser(userEmail) {
-  const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.user.security']);
-  await auth.authorize();
-  const admin = google.admin({ version: 'directory_v1', auth });
-  try {
-    const res = await admin.tokens.list({ userKey: userEmail });
-    const items = res.data.items || [];
-    const highRiskApps = items.filter(token => (token.scopes || []).some(scope => HIGH_RISK_SCOPES.includes(scope)));
-    return {
-      appsCount: items.length,
-      highRiskAppsCount: highRiskApps.length,
-      allAppNames: items.map(app => app.displayText),
-      highRiskSummary: highRiskApps.map(app => app.displayText).slice(0, 3).join(', ')
-    };
-  } catch (err) {
-    return { error: err.message, appsCount: 0, highRiskAppsCount: 0, allAppNames: [], highRiskSummary: '' };
-  }
+    const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.directory.user.security']);
+    await auth.authorize();
+    const admin = google.admin({ version: 'directory_v1', auth });
+    try {
+        const res = await admin.tokens.list({ userKey: userEmail });
+        const items = res.data.items || [];
+        const highRiskApps = items.filter(token => (token.scopes || []).some(scope => HIGH_RISK_SCOPES.includes(scope)));
+        return {
+            appsCount: items.length,
+            highRiskAppsCount: highRiskApps.length,
+            allAppNames: items.map(app => app.displayText),
+            highRiskSummary: highRiskApps.map(app => app.displayText).slice(0, 3).join(', ')
+        };
+    } catch (err) {
+        return { error: err.message, appsCount: 0, highRiskAppsCount: 0, allAppNames: [], highRiskSummary: '' };
+    }
 }
 
 async function getDomainEmailSettings(usersData) {
@@ -327,10 +346,10 @@ async function getDomainEmailSettings(usersData) {
                 status = 'p=reject';
             } else if (dmarcRecord.includes('p=quarantine')) {
                 status = 'p=quarantine';
-                type = 'bad'; 
+                type = 'bad';
             } else {
-                 status = 'p=none';
-                 type = 'bad';
+                status = 'p=none';
+                type = 'bad';
             }
             results.push({ name: 'Domain Based Message Authentication, Reporting, and Conformance', status, type, details: `Policy Found: ${dmarcRecord}` });
 
@@ -346,89 +365,89 @@ async function getDomainEmailSettings(usersData) {
         await dns.resolveTxt(`google._domainkey.${domain}`);
         results.push({ name: 'DomainKeys Identified Mail', status: 'Configured', type: 'good', details: 'A DKIM record for the default Google selector was found.' });
     } catch (e) {
-         results.push({ name: 'DomainKeys Identified Mail', status: 'Not Found', type: 'bad', details: `Could not find a DKIM record for the default "google" selector.` });
+        results.push({ name: 'DomainKeys Identified Mail', status: 'Not Found', type: 'bad', details: `Could not find a DKIM record for the default "google" selector.` });
     }
-    
+
     // 4. Aggregate user-level data
     const popImapUsers = usersData.filter(u => u.popAccess || u.imapAccess).length;
     const autoForwardingUsers = usersData.filter(u => u.forwardingEnabled).length;
-    
+
     results.push({ name: 'POP and IMAP Access', status: `${popImapUsers} Users Enabled`, type: popImapUsers > 0 ? 'bad' : 'good', details: 'Live Data: Shows the total number of users with legacy POP or IMAP access enabled. It is recommended to disable this for all non-essential accounts.' });
-    results.push({ name: 'Automatic Forwarding', status: `${autoForwardingUsers} Users Forwarding`, type: autoForwardingUsers > 0 ? 'bad' : 'good', details: 'Live Data: Shows the total number of users with any kind of automatic email forwarding rule. This should be audited regularly.'});
-    
+    results.push({ name: 'Automatic Forwarding', status: `${autoForwardingUsers} Users Forwarding`, type: autoForwardingUsers > 0 ? 'bad' : 'good', details: 'Live Data: Shows the total number of users with any kind of automatic email forwarding rule. This should be audited regularly.' });
+
     return results;
 }
 
 async function collectAll() {
-  LOG.info('Starting full data collection');
-  const [users, allAlerts, mobileDevices, assignmentsByEmail] = await Promise.all([
-      listAllUsers(), getAllAlerts(), listMobileDevices(), getAdminRolesForUsers()
-  ]);
-  
-  const securityAlerts = allAlerts.filter(a => a.type === 'Suspicious login' || a.type === 'Phishing');
-
-  const alertsByEmail = securityAlerts.reduce((acc, a) => {
-    (a.data?.affectedUserEmails || []).forEach(email => { (acc[email] = acc[email] || []).push({ type: a.type }); });
-    return acc;
-  }, {});
-
-  const mobileByEmail = mobileDevices.reduce((acc, d) => {
-      (d.email || []).forEach(email => { acc[email] = true; });
-      return acc;
-  }, {});
-
-  const results = [];
-  for (const [i, u] of users.entries()) {
-    const email = u.primaryEmail;
-    LOG.info({ i, email }, 'Processing user');
-    const [gmailSettings, appsData, loginStats, twoFaEnrollmentDate] = await Promise.all([
-        getGmailSettingsForUser(email),
-        getThirdPartyAppsForUser(email),
-        getLoginEventsForUser(email, 30),
-        (async () => {
-            const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.reports.audit.readonly']);
-            try {
-                await auth.authorize();
-                const reports = google.admin({ version: 'reports_v1', auth });
-                const res = await reports.activities.list({ userKey: email, eventName: 'ENROLL_2SV', maxResults: 1 });
-                return res.data.items?.[0]?.id?.time || null;
-            } catch { return null; }
-        })()
+    LOG.info('Starting full data collection');
+    const [users, allAlerts, mobileDevices, assignmentsByEmail] = await Promise.all([
+        listAllUsers(), getAllAlerts(), listMobileDevices(), getAdminRolesForUsers()
     ]);
-    
-    let passwordLastChanged = await getPasswordChangeFromBigQuery(email);
-    if (!passwordLastChanged) {
-        passwordLastChanged = await getPasswordChangeFromReports(email);
+
+    const securityAlerts = allAlerts.filter(a => a.type === 'Suspicious login' || a.type === 'Phishing');
+
+    const alertsByEmail = securityAlerts.reduce((acc, a) => {
+        (a.data?.affectedUserEmails || []).forEach(email => { (acc[email] = acc[email] || []).push({ type: a.type }); });
+        return acc;
+    }, {});
+
+    const mobileByEmail = mobileDevices.reduce((acc, d) => {
+        (d.email || []).forEach(email => { acc[email] = true; });
+        return acc;
+    }, {});
+
+    const results = [];
+    for (const [i, u] of users.entries()) {
+        const email = u.primaryEmail;
+        LOG.info({ i, email }, 'Processing user');
+        const [gmailSettings, appsData, loginStats, twoFaEnrollmentDate] = await Promise.all([
+            getGmailSettingsForUser(email),
+            getThirdPartyAppsForUser(email),
+            getLoginEventsForUser(email, 30),
+            (async () => {
+                const auth = jwtForSubject(appConfig.adminUser, ['https://www.googleapis.com/auth/admin.reports.audit.readonly']);
+                try {
+                    await auth.authorize();
+                    const reports = google.admin({ version: 'reports_v1', auth });
+                    const res = await reports.activities.list({ userKey: email, eventName: 'ENROLL_2SV', maxResults: 1 });
+                    return res.data.items?.[0]?.id?.time || null;
+                } catch { return null; }
+            })()
+        ]);
+
+        let passwordLastChanged = await getPasswordChangeFromBigQuery(email);
+        if (!passwordLastChanged) {
+            passwordLastChanged = await getPasswordChangeFromReports(email);
+        }
+
+        const userAlerts = alertsByEmail[email] || [];
+        const userRoles = assignmentsByEmail[email] || [];
+
+        const phones = u.phones || [];
+        const recoveryPhone = phones.find(p => p.type === 'recovery')?.value || 'Not Set';
+        const contactPhone = phones.find(p => p.type !== 'recovery')?.value || 'N/A';
+
+        const record = {
+            primaryEmail: email, name: u.name?.fullName || '', accountCreated: u.creationTime,
+            lastLogin: u.lastLoginTime, isAdmin: !!u.isAdmin, adminRoles: u.isAdmin ? 'Super Admin' : userRoles.join(', ') || 'User',
+            suspended: !!u.suspended,
+            recoveryPhone: recoveryPhone,
+            contactPhone: contactPhone,
+            alertsEnabled: allAlerts.length > 0,
+            mfaEnrolled: !!u.isEnrolledIn2Sv, mfaEnrollmentDate: twoFaEnrollmentDate, passwordLastChanged: passwordLastChanged,
+            phishingAlerts: userAlerts.filter(a => a.type === 'Phishing').length, alertSummary: userAlerts.slice(0, 3).map(a => a.type).join(', '),
+            unusualLogins: (loginStats.failure || 0) > 5, successfulLogins: loginStats.success || 0, failedLogins: loginStats.failure || 0,
+            phishingSpamReports: null, authorizedApps: appsData.appsCount, appNames: appsData.allAppNames, highRiskApps: appsData.highRiskAppsCount,
+            highRiskSummary: appsData.highRiskSummary, forwardingEnabled: gmailSettings.forwardingEnabled, forwardingAddresses: gmailSettings.forwardingAddresses.join(', '),
+            forwardingExternal: gmailSettings.forwardingExternal, configError: gmailSettings._error || null, smtpAccess: gmailSettings.smtpAccessPresent,
+            imapAccess: gmailSettings.imapEnabled, popAccess: gmailSettings.popEnabled, mobileAccess: !!mobileByEmail[email],
+        };
+        results.push(record);
     }
 
-    const userAlerts = alertsByEmail[email] || [];
-    const userRoles = assignmentsByEmail[email] || [];
-    
-    const phones = u.phones || [];
-    const recoveryPhone = phones.find(p => p.type === 'recovery')?.value || 'Not Set';
-    const contactPhone = phones.find(p => p.type !== 'recovery')?.value || 'N/A';
+    const domainEmailSettings = await getDomainEmailSettings(results);
 
-    const record = {
-      primaryEmail: email, name: u.name?.fullName || '', accountCreated: u.creationTime,
-      lastLogin: u.lastLoginTime, isAdmin: !!u.isAdmin, adminRoles: u.isAdmin ? 'Super Admin' : userRoles.join(', ') || 'User',
-      suspended: !!u.suspended, 
-      recoveryPhone: recoveryPhone,
-      contactPhone: contactPhone,
-      alertsEnabled: allAlerts.length > 0,
-      mfaEnrolled: !!u.isEnrolledIn2Sv, mfaEnrollmentDate: twoFaEnrollmentDate, passwordLastChanged: passwordLastChanged,
-      phishingAlerts: userAlerts.filter(a => a.type === 'Phishing').length, alertSummary: userAlerts.slice(0,3).map(a => a.type).join(', '),
-      unusualLogins: (loginStats.failure || 0) > 5, successfulLogins: loginStats.success || 0, failedLogins: loginStats.failure || 0,
-      phishingSpamReports: null, authorizedApps: appsData.appsCount, appNames: appsData.allAppNames, highRiskApps: appsData.highRiskAppsCount,
-      highRiskSummary: appsData.highRiskSummary, forwardingEnabled: gmailSettings.forwardingEnabled, forwardingAddresses: gmailSettings.forwardingAddresses.join(', '),
-      forwardingExternal: gmailSettings.forwardingExternal, configError: gmailSettings._error || null, smtpAccess: gmailSettings.smtpAccessPresent,
-      imapAccess: gmailSettings.imapEnabled, popAccess: gmailSettings.popEnabled, mobileAccess: !!mobileByEmail[email],
-    };
-    results.push(record);
-  }
-  
-  const domainEmailSettings = await getDomainEmailSettings(results);
-
-  return { users: results, alerts: allAlerts, totalAlertCount: allAlerts.length, domainEmailSettings };
+    return { users: results, alerts: allAlerts, totalAlertCount: allAlerts.length, domainEmailSettings };
 }
 
 
@@ -473,16 +492,16 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const { 
-        adminUser, domain, project_id, private_key_id, private_key, 
-        client_email, client_id, useBigQuery, 
-        bigquery_project_id, bigquery_dataset_name 
+    const {
+        adminUser, domain, project_id, private_key_id, private_key,
+        client_email, client_id, useBigQuery,
+        bigquery_project_id, bigquery_dataset_name
     } = req.body;
-    
+
     const formattedPrivateKey = private_key.replace(/\\n/g, '\n');
 
     const serviceAccountCreds = {
-        type: "service_account", project_id, private_key_id, 
+        type: "service_account", project_id, private_key_id,
         private_key: formattedPrivateKey, client_email, client_id,
         auth_uri: "https://accounts.google.com/o/oauth2/auth",
         token_uri: "https://oauth2.googleapis.com/token",
@@ -491,8 +510,8 @@ app.post('/login', async (req, res) => {
         universe_domain: "googleapis.com"
     };
 
-    const tempConfig = { 
-        adminUser, domain, serviceAccountCreds, 
+    const tempConfig = {
+        adminUser, domain, serviceAccountCreds,
         useBigQuery: !!useBigQuery,
         bigquery_project_id: useBigQuery ? bigquery_project_id : null,
         bigquery_dataset_name: useBigQuery ? bigquery_dataset_name : null
@@ -523,7 +542,7 @@ app.get('/', requireLogin, (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/run', requireLogin, async (req, res) => {
+app.get('/api/run', requireApiLogin, async (req, res) => {
     try {
         const out = await collectAll();
         cachedData = { ok: true, ts: new Date().toISOString(), currentUser: appConfig.adminUser, ...out };
@@ -534,13 +553,13 @@ app.get('/api/run', requireLogin, async (req, res) => {
     }
 });
 
-app.get('/api/latest', requireLogin, (req, res) => {
+app.get('/api/latest', requireApiLogin, (req, res) => {
     if (cachedData) return res.json(cachedData);
     res.status(404).json({ ok: false, error: 'No data has been cached yet. Please run a scan.' });
 });
 
 // --- Settings API Endpoints ---
-app.get('/api/config/view', requireLogin, (req, res) => {
+app.get('/api/config/view', requireApiLogin, (req, res) => {
     if (!appConfig) return res.status(404).json({ error: 'Config not found' });
     res.json({
         adminUser: appConfig.adminUser,
@@ -553,21 +572,21 @@ app.get('/api/config/view', requireLogin, (req, res) => {
     });
 });
 
-app.get('/api/schedule', requireLogin, (req, res) => {
+app.get('/api/schedule', requireApiLogin, (req, res) => {
     res.json({
         enabled: !!appConfig.schedule?.enabled,
         time: appConfig.schedule?.time || '02:00'
     });
 });
 
-app.post('/api/schedule', requireLogin, (req, res) => {
+app.post('/api/schedule', requireApiLogin, (req, res) => {
     const { enabled, time } = req.body;
     if (typeof enabled !== 'boolean' || (enabled && typeof time !== 'string')) {
         return res.status(400).json({ error: 'Invalid schedule data' });
     }
 
     appConfig.schedule = { enabled, time };
-    
+
     let cronPattern = null;
     if (enabled && time) {
         const [hour, minute] = time.split(':');
