@@ -331,6 +331,230 @@
         .light-mode #alerts-dropdown a:hover {
             background-color: #f1f5f9;
         }
+
+        /* AI Chat Panel */
+        #ai-chat-panel {
+            position: fixed;
+            right: -420px;
+            top: 0;
+            width: 420px;
+            height: 100vh;
+            background: rgba(15, 19, 32, 0.97);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(56, 189, 248, 0.2);
+            z-index: 60;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #ai-chat-panel.open {
+            right: 0;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .chat-msg {
+            max-width: 90%;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .chat-msg.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .chat-msg.ai {
+            align-self: flex-start;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            color: #e2e8f0;
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .chat-msg.ai strong {
+            color: #38BDF8;
+        }
+
+        .chat-msg.ai code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        .ai-typing {
+            display: flex;
+            gap: 4px;
+            padding: 0.75rem 1rem;
+        }
+
+        .ai-typing span {
+            width: 8px;
+            height: 8px;
+            background: #38BDF8;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .ai-typing span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .ai-typing span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+
+            30% {
+                transform: translateY(-8px);
+                opacity: 1;
+            }
+        }
+
+        /* AI FAB Button */
+        #ai-chat-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+            z-index: 55;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #ai-chat-fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 28px rgba(99, 102, 241, 0.6);
+        }
+
+        /* Risk Badge Styles */
+        .risk-badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .risk-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .risk-high {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .risk-medium {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fde68a;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .risk-low {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        /* AI Content Markdown Rendering */
+        .ai-content h1,
+        .ai-content h2,
+        .ai-content h3 {
+            color: #38BDF8;
+            margin: 1rem 0 0.5rem;
+            font-weight: 600;
+        }
+
+        .ai-content h1 {
+            font-size: 1.25rem;
+        }
+
+        .ai-content h2 {
+            font-size: 1.1rem;
+        }
+
+        .ai-content h3 {
+            font-size: 1rem;
+        }
+
+        .ai-content p {
+            margin: 0.5rem 0;
+        }
+
+        .ai-content ul,
+        .ai-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .ai-content li {
+            margin: 0.25rem 0;
+        }
+
+        .ai-content strong {
+            color: #f1f5f9;
+        }
+
+        .ai-content code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+        }
+
+        /* Pulse animation for AI button */
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(99, 102, 241, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(99, 102, 241, 0.8);
+            }
+        }
+
+        .ai-loading {
+            animation: pulse-glow 1.5s infinite;
+        }
     </style>
 </head>
 
@@ -347,8 +571,7 @@
             class="w-64 flex-shrink-0 bg-slate-900/80 p-4 flex flex-col z-30 transition-all duration-300">
             <div class="flex-grow">
                 <div class="flex items-center space-x-3 mb-6 px-2">
-                    <img src="D:\Downloads\gws login page\public\images\images.png" alt="GWS Logo"
-                        class="w-full h-auto rounded-md">
+                    <img src="/images/log.png" alt="GWS Logo" class="w-32 h-22 rounded-md">
                 </div>
                 <nav class="flex flex-col space-y-2">
                     <a href="#" data-page="overview"
@@ -405,6 +628,22 @@
                                 d="M18 8a6 6 0 11-12 0 6 6 0 0112 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 11-1.06 1.06L10 5.81V12a.75.75 0 01-1.5 0V5.81l-.94.94z"
                                 clip-rule="evenodd" />
                         </svg><span class="ml-3 nav-text">Alert Center</span></a>
+                    <div class="mt-4 pt-4 border-t border-slate-700">
+                        <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2 px-2">AI Powered
+                        </p>
+                        <a href="#" data-page="ai_analysis"
+                            class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47-2.47M5 14.5l2.47-2.47m0 0a48.578 48.578 0 019.06 0" />
+                            </svg><span class="ml-3 nav-text">AI Analysis</span></a>
+                        <a href="#" data-page="ai_compliance"
+                            class="nav-link flex items-center p-2 rounded-lg font-semibold"><svg class="h-6 w-6"
+                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                            </svg><span class="ml-3 nav-text">Compliance</span></a>
+                    </div>
                 </nav>
             </div>
             <div class="mt-auto space-y-2">
@@ -719,8 +958,154 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- AI Analysis Page -->
+                <div class="page-pane" id="ai_analysis-page">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-white">AI Security Analysis</h2>
+                        <div class="flex items-center space-x-3">
+                            <span id="ai-status-badge"
+                                class="text-xs px-2 py-1 rounded-full bg-slate-700 text-slate-400">Checking AI...</span>
+                            <button id="runAiAnalysisBtn"
+                                class="bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-600 transition flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0" />
+                                </svg>
+                                <span id="runAiAnalysisBtnText">Run AI Analysis</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Risk Score Overview -->
+                    <div id="riskScoreOverview" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="glass-card p-5 glow-border">
+                            <p class="text-slate-300 text-sm font-medium">Org Security Score</p>
+                            <p id="orgScoreValue" class="text-4xl font-bold text-cyan-400 mt-2">—</p>
+                            <p id="orgScoreGrade" class="text-sm text-slate-400 mt-1">Grade: —</p>
+                        </div>
+                        <div class="glass-card p-5">
+                            <p class="text-slate-300 text-sm font-medium">Critical Risk Users</p>
+                            <p id="criticalUsersCount" class="text-3xl font-bold text-red-400 mt-2">—</p>
+                        </div>
+                        <div class="glass-card p-5">
+                            <p class="text-slate-300 text-sm font-medium">High Risk Users</p>
+                            <p id="highRiskUsersCount" class="text-3xl font-bold text-yellow-400 mt-2">—</p>
+                        </div>
+                        <div class="glass-card p-5">
+                            <p class="text-slate-300 text-sm font-medium">AI Provider</p>
+                            <p class="text-xl font-bold text-purple-400 mt-2">Groq</p>
+                            <p class="text-xs text-slate-500 mt-1">llama-3.3-70b-versatile</p>
+                        </div>
+                    </div>
+
+                    <!-- User Risk Breakdown -->
+                    <div class="glass-card p-6 mb-8">
+                        <h3 class="text-lg font-semibold text-white mb-4">User Risk Scores</h3>
+                        <div id="userRiskContainer" class="space-y-3">
+                            <p class="text-slate-400 text-sm">Run a scan first then load risk scores.</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Analysis Results -->
+                    <div class="glass-card p-6 mb-8">
+                        <h3 class="text-lg font-semibold text-white mb-4">AI Analysis Report</h3>
+                        <div id="aiAnalysisResult" class="ai-content text-slate-300 text-sm leading-relaxed">
+                            <p class="text-slate-400">Click "Run AI Analysis" to generate a comprehensive security
+                                report using Grok AI.</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Recommendations -->
+                    <div class="glass-card p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-white">AI Recommendations</h3>
+                            <button id="getRecommendationsBtn"
+                                class="text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg transition">
+                                Get Recommendations
+                            </button>
+                        </div>
+                        <div id="aiRecommendationsResult" class="ai-content text-slate-300 text-sm leading-relaxed">
+                            <p class="text-slate-400">Click "Get Recommendations" to receive AI-powered security advice.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Compliance Page -->
+                <div class="page-pane" id="ai_compliance-page">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-white">AI Compliance Monitor</h2>
+                        <button id="runComplianceBtn"
+                            class="bg-indigo-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-indigo-600 transition flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                            </svg>
+                            <span id="runComplianceBtnText">Run Compliance Check</span>
+                        </button>
+                    </div>
+                    <div class="glass-card p-6">
+                        <div id="complianceResult" class="ai-content text-slate-300 text-sm leading-relaxed">
+                            <p class="text-slate-400">Click "Run Compliance Check" to generate an AI-powered compliance
+                                report against security best practices.</p>
+                        </div>
+                    </div>
+                </div>
+
             </main>
         </div>
+    </div>
+
+    <!-- AI Chat Floating Action Button -->
+    <button id="ai-chat-fab" title="AI Security Chat">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+            </path>
+        </svg>
+    </button>
+
+    <!-- AI Chat Slide-out Panel -->
+    <div id="ai-chat-panel">
+        <div class="flex items-center justify-between p-4 border-b border-slate-700">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-white font-semibold text-sm">Groq Security Analyst</h3>
+                    <p class="text-slate-500 text-xs">Powered by Groq</p>
+                </div>
+            </div>
+            <button id="closeChatBtn" class="text-slate-400 hover:text-white text-xl">✕</button>
+        </div>
+        <div id="chatMessages" class="chat-messages">
+            <div class="chat-msg ai">👋 Hi! I'm your AI security analyst. Ask me anything about your Google Workspace
+                security posture. For example:
+                • <em>"Which users are at high risk?"</em>
+                • <em>"Summarize our security status"</em>
+                • <em>"What should we fix first?"</em></div>
+        </div>
+        <div class="p-4 border-t border-slate-700">
+            <div class="flex space-x-2">
+                <input type="text" id="chatInput"
+                    class="flex-1 bg-slate-800 border border-slate-600 text-white text-sm rounded-lg p-2.5"
+                    placeholder="Ask about your security...">
+                <button id="chatSendBtn"
+                    class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
     </div>
 
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 z-40 hidden items-center justify-center">
@@ -820,6 +1205,7 @@
         // =================== STATE MANAGEMENT ===================
         let allUsersData = [];
         let allAlertsData = [];
+        let cachedData = null;
         let dtInstances = {};
         let chartInstances = {};
         let currentPage = 'overview';
@@ -870,6 +1256,9 @@
 
             if (allUsersData.length > 0) {
                 renderPageContent(pageName);
+            } else if (['ai_analysis', 'ai_compliance'].includes(pageName)) {
+                // AI pages can still load risk scores from the server even without local data
+                loadRiskScores();
             }
         }
 
@@ -1042,7 +1431,8 @@
         }
 
         function renderPageContent(pageName, data = allUsersData, renderCardsFlag = true) {
-            if (renderCardsFlag && pageName !== 'alert_center') {
+            const pagesWithCards = ['overview', 'iam', 'email', 'forwarding', 'protocol', 'apps'];
+            if (renderCardsFlag && pagesWithCards.includes(pageName)) {
                 renderCards(`${pageName}CardContainer`, getCardData(pageName, data));
             }
 
@@ -1053,7 +1443,9 @@
                 'email': buildEmailPage,
                 'forwarding': buildForwardingTable,
                 'protocol': buildProtocolTable,
-                'apps': buildAppsTable
+                'apps': buildAppsTable,
+                'ai_analysis': () => loadRiskScores(),
+                'ai_compliance': () => { }
             };
             if (pageActionMap[pageName]) pageActionMap[pageName](data);
         }
@@ -1445,6 +1837,19 @@
             }
         }
 
+        // =================== AUTO-REFRESH POLLING ===================
+        function setupAutoRefreshPolling() {
+            // Clear any existing interval
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+            // Poll every 60 seconds for background scan updates
+            refreshIntervalId = setInterval(() => {
+                checkForUpdates();
+            }, 60000);
+        }
+
         async function checkForUpdates() {
             if (!currentDataTimestamp) return;
 
@@ -1551,6 +1956,237 @@
                 $('#alerts-dropdown').addClass('hidden');
             });
         }
+
+        // =================== AI FEATURES ===================
+        function simpleMarkdown(text) {
+            return text
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function getRiskBadge(riskLevel) {
+            const cls = `risk-${riskLevel.toLowerCase()}`;
+            return `<span class="risk-badge ${cls}">${riskLevel}</span>`;
+        }
+
+        // Check AI status on load
+        async function checkAiStatus() {
+            try {
+                const res = await fetch('/api/ai/status', { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const badge = document.getElementById('ai-status-badge');
+                if (badge) {
+                    if (data.enabled) {
+                        badge.textContent = 'AI Online';
+                        badge.className = 'text-xs px-2 py-1 rounded-full bg-green-900/50 text-green-400 border border-green-500/30';
+                    } else {
+                        badge.textContent = 'AI Offline — Set GROQ_API_KEY';
+                        badge.className = 'text-xs px-2 py-1 rounded-full bg-red-900/50 text-red-400 border border-red-500/30';
+                    }
+                }
+            } catch (e) { console.warn('AI status check failed'); }
+        }
+
+        // Load risk scores
+        async function loadRiskScores() {
+            try {
+                const res = await fetch('/api/security-score', { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.ok) return;
+
+                document.getElementById('orgScoreValue').textContent = data.orgScore.score + '%';
+                document.getElementById('orgScoreGrade').textContent = 'Grade: ' + data.orgScore.grade;
+                document.getElementById('criticalUsersCount').textContent = data.orgScore.criticalUsers || 0;
+                document.getElementById('highRiskUsersCount').textContent = data.orgScore.highRiskUsers || 0;
+
+                const container = document.getElementById('userRiskContainer');
+                if (data.userScores && data.userScores.length > 0) {
+                    container.innerHTML = data.userScores.map(u => {
+                        const barWidth = Math.max(u.riskScore, 3);
+                        const barColor = u.riskLevel === 'CRITICAL' ? '#ef4444' : u.riskLevel === 'HIGH' ? '#f59e0b' : u.riskLevel === 'MEDIUM' ? '#eab308' : '#22c55e';
+                        return `<div class="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+                            <div class="flex items-center space-x-3 flex-1">
+                                <div class="w-32 truncate text-sm text-white font-medium">${u.email}</div>
+                                ${u.isAdmin ? '<span class="text-xs bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded">Admin</span>' : ''}
+                                <div class="flex-1 mx-3">
+                                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full transition-all" style="width: ${barWidth}%; background: ${barColor}"></div>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-bold" style="color: ${barColor}">${u.riskScore}</span>
+                                ${getRiskBadge(u.riskLevel)}
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            } catch (e) { console.warn('Risk score load failed:', e); }
+        }
+
+        // AI Analysis
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAiStatus();
+
+            // Run AI Analysis
+            const analyzeBtn = document.getElementById('runAiAnalysisBtn');
+            if (analyzeBtn) {
+                analyzeBtn.addEventListener('click', async () => {
+                    const btnText = document.getElementById('runAiAnalysisBtnText');
+                    const resultDiv = document.getElementById('aiAnalysisResult');
+                    btnText.textContent = 'Analyzing...';
+                    analyzeBtn.disabled = true;
+                    analyzeBtn.classList.add('ai-loading');
+                    resultDiv.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div><p class="text-slate-400 mt-2">Groq AI is analyzing your security posture...</p>';
+
+                    try {
+                        const res = await fetch('/api/ai/analyze', { method: 'POST', credentials: 'include' });
+                        const data = await res.json();
+                        if (data.ok) {
+                            resultDiv.innerHTML = simpleMarkdown(data.analysis);
+                        } else {
+                            resultDiv.innerHTML = `<p class="text-red-400">Error: ${data.error}</p>`;
+                        }
+                    } catch (e) {
+                        resultDiv.innerHTML = `<p class="text-red-400">Failed to reach AI service: ${e.message}</p>`;
+                    } finally {
+                        btnText.textContent = 'Run AI Analysis';
+                        analyzeBtn.disabled = false;
+                        analyzeBtn.classList.remove('ai-loading');
+                    }
+                });
+            }
+
+            // Get Recommendations
+            const recBtn = document.getElementById('getRecommendationsBtn');
+            if (recBtn) {
+                recBtn.addEventListener('click', async () => {
+                    const resultDiv = document.getElementById('aiRecommendationsResult');
+                    recBtn.textContent = 'Loading...';
+                    recBtn.disabled = true;
+                    resultDiv.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div>';
+
+                    try {
+                        const res = await fetch('/api/ai/recommendations', { credentials: 'include' });
+                        const data = await res.json();
+                        if (data.ok) {
+                            resultDiv.innerHTML = simpleMarkdown(data.recommendations);
+                        } else {
+                            resultDiv.innerHTML = `<p class="text-red-400">Error: ${data.error}</p>`;
+                        }
+                    } catch (e) {
+                        resultDiv.innerHTML = `<p class="text-red-400">Failed: ${e.message}</p>`;
+                    } finally {
+                        recBtn.textContent = 'Get Recommendations';
+                        recBtn.disabled = false;
+                    }
+                });
+            }
+
+            // Compliance Check
+            const compBtn = document.getElementById('runComplianceBtn');
+            if (compBtn) {
+                compBtn.addEventListener('click', async () => {
+                    const btnText = document.getElementById('runComplianceBtnText');
+                    const resultDiv = document.getElementById('complianceResult');
+                    btnText.textContent = 'Checking...';
+                    compBtn.disabled = true;
+                    compBtn.classList.add('ai-loading');
+                    resultDiv.innerHTML = '<div class="ai-typing"><span></span><span></span><span></span></div><p class="text-slate-400 mt-2">Running compliance checks...</p>';
+
+                    try {
+                        const res = await fetch('/api/ai/compliance', { method: 'POST', credentials: 'include' });
+                        const data = await res.json();
+                        if (data.ok) {
+                            resultDiv.innerHTML = simpleMarkdown(data.complianceReport);
+                        } else {
+                            resultDiv.innerHTML = `<p class="text-red-400">Error: ${data.error}</p>`;
+                        }
+                    } catch (e) {
+                        resultDiv.innerHTML = `<p class="text-red-400">Failed: ${e.message}</p>`;
+                    } finally {
+                        btnText.textContent = 'Run Compliance Check';
+                        compBtn.disabled = false;
+                        compBtn.classList.remove('ai-loading');
+                    }
+                });
+            }
+
+            // Chat Panel Toggle
+            const chatFab = document.getElementById('ai-chat-fab');
+            const chatPanel = document.getElementById('ai-chat-panel');
+            const closeChatBtn = document.getElementById('closeChatBtn');
+
+            chatFab.addEventListener('click', () => {
+                chatPanel.classList.toggle('open');
+            });
+            closeChatBtn.addEventListener('click', () => {
+                chatPanel.classList.remove('open');
+            });
+
+            // Chat Sending
+            const chatInput = document.getElementById('chatInput');
+            const chatSendBtn = document.getElementById('chatSendBtn');
+            const chatMessages = document.getElementById('chatMessages');
+
+            async function sendChatMessage() {
+                const msg = chatInput.value.trim();
+                if (!msg) return;
+
+                // Add user message
+                chatMessages.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+                chatInput.value = '';
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Add typing indicator
+                const typingId = 'typing-' + Date.now();
+                chatMessages.innerHTML += `<div id="${typingId}" class="chat-msg ai"><div class="ai-typing"><span></span><span></span><span></span></div></div>`;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                try {
+                    const res = await fetch('/api/ai/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({ message: msg }),
+                    });
+                    const data = await res.json();
+                    const typingEl = document.getElementById(typingId);
+                    if (typingEl) {
+                        if (data.ok) {
+                            typingEl.innerHTML = simpleMarkdown(data.response);
+                        } else {
+                            typingEl.innerHTML = `<span class="text-red-400">${data.error || 'AI request failed'}</span>`;
+                        }
+                    }
+                } catch (e) {
+                    const typingEl = document.getElementById(typingId);
+                    if (typingEl) typingEl.innerHTML = `<span class="text-red-400">Connection error: ${e.message}</span>`;
+                }
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            chatSendBtn.addEventListener('click', sendChatMessage);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendChatMessage();
+            });
+
+            // Load risk scores when AI Analysis page is shown
+            const origShowPage = showPage;
+            showPage = function (pageName) {
+                origShowPage(pageName);
+                if (pageName === 'ai_analysis') {
+                    loadRiskScores();
+                }
+            };
+        });
 
     </script>
 </body>

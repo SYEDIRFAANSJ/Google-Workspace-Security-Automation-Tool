@@ -15,6 +15,7 @@ require('dotenv').config();
 
 const { google } = require('googleapis');
 const { BigQuery } = require('@google-cloud/bigquery');
+const OpenAI = require('openai');
 
 const LOG = pino({ level: process.env.LOG_LEVEL || 'info' });
 
@@ -29,6 +30,19 @@ const CONFIG_PATH = path.join(__dirname, 'config.json');
 let appConfig = null;
 let cachedData = null;
 let cronTask = null; // To hold the scheduled task object
+
+// --- Groq AI Client (OpenAI-compatible) ---
+let groqClient = null;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (GROQ_API_KEY) {
+    groqClient = new OpenAI({
+        apiKey: GROQ_API_KEY,
+        baseURL: 'https://api.groq.com/openai/v1',
+    });
+    LOG.info('Groq AI client initialized successfully.');
+} else {
+    LOG.warn('GROQ_API_KEY not set in .env — AI features will be disabled.');
+}
 
 // --- Configuration & Encryption ---
 const ALGORITHM = 'aes-256-cbc';
@@ -451,6 +465,179 @@ async function collectAll() {
 }
 
 
+// --- Risk Scoring Engine ---
+function calculateUserRiskScore(user) {
+    let score = 0;
+    const factors = [];
+
+    // MFA not enabled (major risk, especially for admins)
+    if (!user.mfaEnrolled) {
+        const weight = user.isAdmin ? 30 : 20;
+        score += weight;
+        factors.push({ factor: `MFA not enabled${user.isAdmin ? ' (ADMIN account)' : ''}`, weight, severity: 'critical' });
+    }
+
+    // External email forwarding
+    if (user.forwardingExternal) {
+        score += 20;
+        factors.push({ factor: `External email forwarding active to: ${user.forwardingAddresses || 'unknown'}`, weight: 20, severity: 'high' });
+    } else if (user.forwardingEnabled) {
+        score += 5;
+        factors.push({ factor: 'Internal forwarding enabled', weight: 5, severity: 'low' });
+    }
+
+    // High-risk third-party apps
+    if (user.highRiskApps > 0) {
+        const weight = Math.min(user.highRiskApps * 5, 15);
+        score += weight;
+        factors.push({ factor: `${user.highRiskApps} high-risk OAuth apps connected`, weight, severity: user.highRiskApps >= 3 ? 'high' : 'medium' });
+    }
+
+    // Failed login attempts (suspicious activity)
+    if (user.failedLogins > 10) {
+        score += 15;
+        factors.push({ factor: `High failed login attempts: ${user.failedLogins}`, weight: 15, severity: 'high' });
+    } else if (user.failedLogins > 5) {
+        score += 8;
+        factors.push({ factor: `Elevated failed login attempts: ${user.failedLogins}`, weight: 8, severity: 'medium' });
+    }
+
+    // Legacy protocols enabled
+    if (user.popAccess || user.imapAccess) {
+        score += 10;
+        factors.push({ factor: `Legacy protocols enabled (POP: ${user.popAccess ? 'Yes' : 'No'}, IMAP: ${user.imapAccess ? 'Yes' : 'No'})`, weight: 10, severity: 'medium' });
+    }
+
+    // Phishing alerts
+    if (user.phishingAlerts > 0) {
+        const weight = Math.min(user.phishingAlerts * 5, 15);
+        score += weight;
+        factors.push({ factor: `${user.phishingAlerts} phishing alert(s) in last 30 days`, weight, severity: 'high' });
+    }
+
+    // No password change in over 90 days
+    if (user.passwordLastChanged) {
+        const daysSinceChange = Math.floor((Date.now() - new Date(user.passwordLastChanged).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceChange > 180) {
+            score += 10;
+            factors.push({ factor: `Password unchanged for ${daysSinceChange} days`, weight: 10, severity: 'medium' });
+        } else if (daysSinceChange > 90) {
+            score += 5;
+            factors.push({ factor: `Password unchanged for ${daysSinceChange} days`, weight: 5, severity: 'low' });
+        }
+    }
+
+    // Suspended account (lower risk as it's already disabled)
+    if (user.suspended) {
+        score = Math.max(score - 20, 0);
+        factors.push({ factor: 'Account is suspended (risk reduced)', weight: -20, severity: 'info' });
+    }
+
+    // Cap at 100
+    score = Math.min(score, 100);
+
+    let riskLevel = 'LOW';
+    if (score >= 70) riskLevel = 'CRITICAL';
+    else if (score >= 50) riskLevel = 'HIGH';
+    else if (score >= 25) riskLevel = 'MEDIUM';
+
+    return { riskScore: score, riskLevel, factors };
+}
+
+function calculateOrgSecurityScore(users) {
+    if (!users || users.length === 0) return { score: 0, grade: 'N/A', breakdown: {} };
+
+    const total = users.length;
+    const mfaRate = users.filter(u => u.mfaEnrolled).length / total;
+    const noExternalForwarding = users.filter(u => !u.forwardingExternal).length / total;
+    const noHighRiskApps = users.filter(u => u.highRiskApps === 0).length / total;
+    const noLegacyProtocols = users.filter(u => !u.popAccess && !u.imapAccess).length / total;
+    const lowFailedLogins = users.filter(u => (u.failedLogins || 0) <= 5).length / total;
+
+    const weights = { mfa: 0.35, forwarding: 0.20, apps: 0.20, protocols: 0.15, logins: 0.10 };
+    const score = Math.round(
+        (mfaRate * weights.mfa +
+            noExternalForwarding * weights.forwarding +
+            noHighRiskApps * weights.apps +
+            noLegacyProtocols * weights.protocols +
+            lowFailedLogins * weights.logins) * 100
+    );
+
+    let grade = 'F';
+    if (score >= 90) grade = 'A';
+    else if (score >= 80) grade = 'B';
+    else if (score >= 70) grade = 'C';
+    else if (score >= 60) grade = 'D';
+
+    return {
+        score,
+        grade,
+        breakdown: {
+            mfaAdoption: Math.round(mfaRate * 100),
+            forwardingSecurity: Math.round(noExternalForwarding * 100),
+            appSecurity: Math.round(noHighRiskApps * 100),
+            protocolSecurity: Math.round(noLegacyProtocols * 100),
+            loginSecurity: Math.round(lowFailedLogins * 100),
+        },
+        criticalUsers: users.filter(u => {
+            const rs = calculateUserRiskScore(u);
+            return rs.riskLevel === 'CRITICAL';
+        }).length,
+        highRiskUsers: users.filter(u => {
+            const rs = calculateUserRiskScore(u);
+            return rs.riskLevel === 'HIGH';
+        }).length,
+    };
+}
+
+// --- Groq AI Service Functions ---
+async function askGroq(systemPrompt, userMessage) {
+    if (!groqClient) {
+        return { error: 'AI is not configured. Please add GROQ_API_KEY to your .env file.' };
+    }
+    try {
+        const completion = await groqClient.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userMessage },
+            ],
+            temperature: 0.3,
+            max_tokens: 2048,
+        });
+        return { response: completion.choices[0].message.content };
+    } catch (err) {
+        LOG.error({ msg: 'Groq AI request failed', error: err.message });
+        return { error: `AI request failed: ${err.message}` };
+    }
+}
+
+function buildSecurityContext(users) {
+    if (!users || users.length === 0) return 'No user data available.';
+    const orgScore = calculateOrgSecurityScore(users);
+    const usersWithRisk = users.map(u => {
+        const risk = calculateUserRiskScore(u);
+        return {
+            email: u.primaryEmail,
+            isAdmin: u.isAdmin,
+            mfaEnrolled: u.mfaEnrolled,
+            riskScore: risk.riskScore,
+            riskLevel: risk.riskLevel,
+            forwardingExternal: u.forwardingExternal,
+            highRiskApps: u.highRiskApps,
+            failedLogins: u.failedLogins,
+            popAccess: u.popAccess,
+            imapAccess: u.imapAccess,
+            suspended: u.suspended,
+        };
+    });
+    return JSON.stringify({
+        organizationScore: orgScore,
+        totalUsers: users.length,
+        users: usersWithRisk,
+    }, null, 2);
+}
+
 // --- Cron Job Management ---
 function scheduleCronJob(scheduleString) {
     if (cronTask) {
@@ -596,6 +783,116 @@ app.post('/api/schedule', requireApiLogin, (req, res) => {
     scheduleCronJob(cronPattern);
     saveConfig(appConfig); // Save the updated schedule
     res.json({ ok: true, message: 'Schedule updated' });
+});
+
+// --- AI API Endpoints ---
+app.get('/api/ai/status', requireApiLogin, (req, res) => {
+    res.json({ enabled: !!groqClient, model: 'llama-3.3-70b-versatile', provider: 'Groq' });
+});
+
+app.get('/api/security-score', requireApiLogin, (req, res) => {
+    if (!cachedData || !cachedData.users) {
+        return res.status(404).json({ ok: false, error: 'No scan data available. Please run a scan first.' });
+    }
+    const users = cachedData.users;
+    const orgScore = calculateOrgSecurityScore(users);
+    const userScores = users.map(u => {
+        const risk = calculateUserRiskScore(u);
+        return {
+            email: u.primaryEmail,
+            name: u.name,
+            isAdmin: u.isAdmin,
+            riskScore: risk.riskScore,
+            riskLevel: risk.riskLevel,
+            factors: risk.factors,
+        };
+    }).sort((a, b) => b.riskScore - a.riskScore);
+
+    res.json({ ok: true, orgScore, userScores });
+});
+
+app.post('/api/ai/chat', requireApiLogin, express.json(), async (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ ok: false, error: 'Message is required.' });
+
+    const securityContext = cachedData ? buildSecurityContext(cachedData.users) : 'No scan data available yet.';
+    const systemPrompt = `You are an AI security analyst for Google Workspace. You have access to real-time security data from the organization's GWS environment. Respond concisely and helpfully. Use the security data provided to answer questions accurately. Format your responses with markdown for readability. When listing users, use tables or bullet points.
+
+CURRENT SECURITY DATA:
+${securityContext}`;
+
+    const result = await askGroq(systemPrompt, message);
+    if (result.error) return res.status(500).json({ ok: false, error: result.error });
+    res.json({ ok: true, response: result.response });
+});
+
+app.post('/api/ai/analyze', requireApiLogin, async (req, res) => {
+    if (!cachedData || !cachedData.users) {
+        return res.status(404).json({ ok: false, error: 'No scan data. Run a scan first.' });
+    }
+    const securityContext = buildSecurityContext(cachedData.users);
+    const systemPrompt = `You are a Chief Information Security Officer (CISO) AI assistant specialized in Google Workspace security. Analyze the complete security posture data provided and generate a comprehensive security analysis report.`;
+    const userMessage = `Analyze this Google Workspace security data and provide:
+1. **Executive Summary** - A brief 2-3 sentence overview of the security posture
+2. **Critical Findings** - Top security issues that need immediate attention
+3. **Risk Assessment** - Breakdown of risks by category (Identity, Email, Apps, Protocols)
+4. **Top 5 Recommendations** - Prioritized actionable recommendations
+5. **Compliance Gaps** - Any policy violations or compliance concerns
+
+SECURITY DATA:
+${securityContext}`;
+
+    const result = await askGroq(systemPrompt, userMessage);
+    if (result.error) return res.status(500).json({ ok: false, error: result.error });
+    res.json({ ok: true, analysis: result.response, timestamp: new Date().toISOString() });
+});
+
+app.post('/api/ai/compliance', requireApiLogin, async (req, res) => {
+    if (!cachedData || !cachedData.users) {
+        return res.status(404).json({ ok: false, error: 'No scan data. Run a scan first.' });
+    }
+    const securityContext = buildSecurityContext(cachedData.users);
+    const systemPrompt = `You are a compliance auditor AI for Google Workspace. Check compliance against industry best practices and security policies.`;
+    const userMessage = `Based on this security data, generate a compliance report checking against these policies:
+
+**Policy 1: MFA Enforcement** - All users, especially admins, must have MFA enabled
+**Policy 2: No External Forwarding** - Email auto-forwarding to external domains should be disabled
+**Policy 3: Legacy Protocol Restriction** - POP3 and IMAP should be disabled for all users
+**Policy 4: App Access Control** - No high-risk third-party apps should be authorized
+**Policy 5: Login Security** - Users with more than 5 failed logins should be flagged
+
+For each policy, report:
+- Compliance status (percentage compliant)
+- List of violating users
+- Recommended remediation actions
+
+SECURITY DATA:
+${securityContext}`;
+
+    const result = await askGroq(systemPrompt, userMessage);
+    if (result.error) return res.status(500).json({ ok: false, error: result.error });
+    res.json({ ok: true, complianceReport: result.response, timestamp: new Date().toISOString() });
+});
+
+app.get('/api/ai/recommendations', requireApiLogin, async (req, res) => {
+    if (!cachedData || !cachedData.users) {
+        return res.status(404).json({ ok: false, error: 'No scan data. Run a scan first.' });
+    }
+    const securityContext = buildSecurityContext(cachedData.users);
+    const systemPrompt = `You are a Google Workspace security advisor AI. Generate actionable, prioritized security recommendations.`;
+    const userMessage = `Based on this security data, provide the top 10 security recommendations. For each recommendation:
+- **Priority**: Critical / High / Medium / Low
+- **Category**: Identity, Email, Apps, or Infrastructure
+- **Action**: What specifically needs to be done
+- **Impact**: What risk this mitigates
+- **Affected Users**: Which users this applies to (list emails)
+
+SECURITY DATA:
+${securityContext}`;
+
+    const result = await askGroq(systemPrompt, userMessage);
+    if (result.error) return res.status(500).json({ ok: false, error: result.error });
+    res.json({ ok: true, recommendations: result.response, timestamp: new Date().toISOString() });
 });
 
 // --- Server Start ---
