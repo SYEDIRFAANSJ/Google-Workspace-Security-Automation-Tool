@@ -31,6 +31,9 @@ A comprehensive **Google Workspace Security Dashboard** designed for CISOs and s
 - **Admin Role Visibility** - Identify users with administrative privileges
 - **BigQuery Integration** (Optional) - Enhanced password change tracking via BigQuery logs
 - **Scheduled Scans** - Configure automated daily security scans
+- **🤖 AI-Powered Security Assistant** - Integrated Groq AI chat for security insights, threat analysis, and recommendations
+- **📊 AI Risk Scoring Engine** - Automated risk assessment and scoring for your workspace security posture
+- **📋 AI Compliance Monitoring** - AI-driven compliance checks and policy recommendations
 
 ---
 
@@ -46,6 +49,7 @@ Before you begin, ensure you have the following:
    - BigQuery API (optional)
 3. **Service Account** with domain-wide delegation configured
 4. **Super Admin Account** for impersonation
+5. **Groq API Key** (free) - Get it from [console.groq.com](https://console.groq.com/) for AI features
 
 ---
 
@@ -54,8 +58,8 @@ Before you begin, ensure you have the following:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/gws-security-dashboard.git
-cd gws-security-dashboard
+git clone https://github.com/SYEDIRFAANSJ/Google-Workspace-Security-Automation-Tool.git
+cd Google-Workspace-Security-Automation-Tool
 ```
 
 ### 2. Install Dependencies
@@ -75,6 +79,10 @@ PORT=3000
 # A long, random, and secret string used for session and encryption
 # IMPORTANT: Generate a secure random string (minimum 32 characters)
 APP_SECRET=your-very-long-and-random-secret-string-here-make-it-secure
+
+# Groq AI API Key (required for AI features)
+# Get your free API key at https://console.groq.com/
+GROQ_API_KEY=your-groq-api-key-here
 ```
 
 > ⚠️ **Security Warning**: Use a strong, unique `APP_SECRET`. This is used to encrypt sensitive credentials stored in `config.json`.
