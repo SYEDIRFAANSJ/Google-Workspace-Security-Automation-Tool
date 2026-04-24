@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>GWS Dashboard Setup</title>
+    <meta name="description" content="Secure setup page for GWS Security Dashboard — configure your Google Workspace service account credentials.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -12,21 +13,41 @@
         .details-marker::marker { color: #38BDF8; }
         .step { border-left: 2px solid #374151; padding-left: 1.5rem; margin-left: 0.5rem; }
         code { white-space: pre-wrap; word-break: break-all; }
+        .security-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 0.5rem; padding: 0.5rem 1rem; font-size: 0.75rem; color: #6ee7b7; }
     </style>
 </head>
 <body class="antialiased text-gray-200 flex items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-4xl mx-auto">
         <div class="setup-card rounded-2xl p-8 md:p-12 shadow-2xl">
-            <h1 class="text-3xl font-bold text-white mb-2 text-center">GWS Dashboard Setup</h1>
-            <p class="text-slate-400 mb-8 text-center">Enter your Google Workspace and Service Account details.</p>
-
-            <div id="errorMessage" class="hidden bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">
-                <strong class="font-bold">Authentication Failed!</strong>
-                <span class="block sm:inline">Please double-check all credentials and ensure Domain-Wide Delegation is correctly configured.</span>
+            <div class="flex items-center justify-center gap-3 mb-2">
+                <h1 class="text-3xl font-bold text-white text-center">GWS Dashboard Setup</h1>
+            </div>
+            <p class="text-slate-400 mb-4 text-center">Enter your Google Workspace and Service Account details.</p>
+            
+            <div class="flex justify-center mb-6">
+                <div class="security-badge">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    <span>Protected — Admin password required</span>
+                </div>
             </div>
 
-            <form action="/login" method="POST" class="space-y-6">
+            <div id="errorMessage" class="hidden bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">
+                <strong class="font-bold">Setup Failed!</strong>
+                <span id="errorText" class="block sm:inline">Please double-check all credentials and ensure Domain-Wide Delegation is correctly configured.</span>
+            </div>
+
+            <form action="/login" method="POST" class="space-y-6" id="setupForm">
+                
+                <!-- Admin Password Section -->
+                <div class="p-4 rounded-lg bg-indigo-900/30 border border-indigo-700/50">
+                    <label for="adminPassword" class="block mb-2 text-sm font-semibold text-indigo-300">🔐 Admin Password</label>
+                    <input type="password" id="adminPassword" name="adminPassword" class="bg-slate-800 border border-slate-600 text-white text-sm rounded-lg block w-full p-2.5" placeholder="Enter the admin password set in .env" required autocomplete="current-password">
+                    <p class="mt-1 text-xs text-slate-500">This password is defined in your server's .env file as ADMIN_PASSWORD.</p>
+                </div>
+
+                <hr class="border-slate-700">
+
                  <div class="grid md:grid-cols-2 gap-6">
                     <div>
                         <label for="adminUser" class="block mb-2 text-sm font-medium text-slate-300">Admin User Email</label>
@@ -81,7 +102,10 @@
                      </div>
                 </div>
 
-                <button type="submit" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 font-semibold rounded-lg text-sm px-5 py-3 text-center">Validate & Save Configuration</button>
+                <button type="submit" id="submitBtn" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 font-semibold rounded-lg text-sm px-5 py-3 text-center transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                    Validate & Save Configuration
+                </button>
             </form>
 
             <div class="mt-10">
@@ -105,7 +129,7 @@
                             <ul class="list-disc list-inside mt-2 space-y-1 pl-4">
                                 <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-cyan-400 hover:underline">Google Cloud Console</a>.</li>
                                 <li>From the welcome screen, click <strong>New Project</strong>.</li>
-                                <li>In the “New Project” window, enter a project name (e.g., `gws-security-dashboard`).</li>
+                                <li>In the "New Project" window, enter a project name (e.g., `gws-security-dashboard`).</li>
                                 <li>Click <strong>Browse</strong> and select your organization. This is a critical step.</li>
                                 <li>Click <strong>Create</strong>.</li>
                             </ul>
@@ -132,9 +156,9 @@
 
                             <p class="mt-4 font-semibold text-slate-300">Get Your Two Credentials</p>
                              <ul class="list-disc list-inside mt-2 space-y-1 pl-4">
-                                <li><strong>(a) The Key File (“Password”):</strong> Open the service account, go to the <strong>Keys</strong> tab, click <strong>Add key → Create new key → JSON</strong>, then <strong>Create</strong>. A `.json` file will download. Store it securely!</li>
+                                <li><strong>(a) The Key File ("Password"):</strong> Open the service account, go to the <strong>Keys</strong> tab, click <strong>Add key → Create new key → JSON</strong>, then <strong>Create</strong>. A `.json` file will download. Store it securely!</li>
                                 <img src="sop steps/img10.png" alt="Keys Tab & Create Key Dialog" class="my-2 rounded-md border border-slate-600 shadow-lg">
-                                <li><strong>(b) The Client ID (“Username”):</strong> Go to the <strong>Details</strong> tab and copy the long number labeled **Client ID**.</li>
+                                <li><strong>(b) The Client ID ("Username"):</strong> Go to the <strong>Details</strong> tab and copy the long number labeled **Client ID**.</li>
                             </ul>
                         </div>
                         
@@ -173,7 +197,7 @@
                                  <li>Ensure the <strong>BigQuery API</strong> was enabled in Step 1.</li>
                                  <li>In Google Admin Console, go to: <strong>Reporting → BigQuery Export</strong>.</li>
                                  <li>Link your Google Cloud Project ID. Google will create a <strong>Dataset Name</strong>.</li>
-                                 <li>You’ll need both the Project ID and Dataset Name for the dashboard.</li>
+                                 <li>You'll need both the Project ID and Dataset Name for the dashboard.</li>
                              </ul>
                         </div>
                         
@@ -194,7 +218,18 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('error')) {
-            document.getElementById('errorMessage').classList.remove('hidden');
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorDiv.classList.remove('hidden');
+            
+            const errorType = urlParams.get('error');
+            if (errorType === 'password') {
+                errorText.textContent = 'Invalid admin password. Please check the ADMIN_PASSWORD in your .env file.';
+            } else if (errorType === 'validation') {
+                errorText.textContent = 'Input validation failed. Please check the email and domain formats.';
+            } else {
+                errorText.textContent = 'Credential validation failed. Please double-check all fields and ensure Domain-Wide Delegation is correctly configured.';
+            }
         }
 
         const bqCheckbox = document.getElementById('useBigQuery');
@@ -212,6 +247,13 @@
                 bqProjectId.required = false;
                 bqDatasetName.required = false;
             }
+        });
+
+        // Show loading state on submit
+        document.getElementById('setupForm').addEventListener('submit', function() {
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validating credentials...';
         });
     </script>
 </body>

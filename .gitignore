@@ -10,6 +10,10 @@ config.json
 # Logs
 *.log
 npm-debug.log*
+audit.log
+
+# Scan history (contains org security data)
+scan-history.json
 
 # OS files
 .DS_Store
